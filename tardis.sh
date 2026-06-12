@@ -21,11 +21,6 @@ pline() {
     printf "%-${art_col}s %b\n" "$art" "$data"
 }
 
-show_sep() {
-    local art="$1"
-    printf "%-${art_col}s ${CYAN}────────────────────────────────────${NC}\n" "$art"
-}
-
 # ── System Info ────────────────────────────────────────────
 os=$(. /etc/os-release 2>/dev/null && echo "$PRETTY_NAME" || awk -F= '/PRETTY_NAME/{print $2}' /etc/*release 2>/dev/null | head -1 | tr -d '"')
 [ -z "$os" ] && os="N/A"
@@ -64,7 +59,7 @@ ip_local=$(ip route get 1.2.3.4 2>/dev/null | awk '{print $7}')
 [ -z "$ip_local" ] && ip_local=$(ip route get 1 2>/dev/null | grep -oP 'src \K[\d.]+' | head -1)
 [ -z "$ip_local" ] && ip_local="—"
 
-ip_public=$(curl -s --max-time 2 ifconfig.me 2>/dev/null || echo "—")
+ip_public=$(curl -s --max-time 2 ipv4.icanhazip.com 2>/dev/null || curl -s --max-time 2 api.ipify.org 2>/dev/null || echo "—")
 
 ipv6_global=$(ip -6 addr show scope global 2>/dev/null | grep -oP 'inet6 \K[0-9a-f:]+' | head -1)
 [ -z "$ipv6_global" ] && ipv6_global="—"
@@ -105,14 +100,14 @@ pline "。★  ˚ •    -   ˚ •。★˚˛˚" "${BOLD}${CYAN}👤 ${USER}${NC
 
 # ── System
 pline "    _______|@|_________" ""
-show_sep "   ---------------------"
+pline "   ---------------------" ""
 pline "  ||  POLICE ---- BOX  ||" "  ${CYAN}OS${NC}       ${GREEN}$os${NC}"
 pline "  -----------------------C" "  ${CYAN}Kernel${NC}   ${GREEN}$kernel${NC}"
 pline "  |  ______  |  ______  |É" "  ${CYAN}Uptime${NC}   ${GREEN}$uptime${NC}"
 pline "  |  |####|  |  |####|  |S" "  ${CYAN}Shell${NC}    ${GREEN}$shell${NC}"
 
 # ── Hardware
-show_sep "  |  |####|  |  |####|  |A"
+pline "  |  |####|  |  |####|  |A" ""
 pline "  |  |####|  |  |####|  |R" "  ${CYAN}CPU${NC}      ${GREEN}$cpu${NC}"
 pline "% |  ------  |  ------  |˚" "  ${CYAN}RAM${NC}      ${GREEN}${ram_gb_used}GB${NC} / ${ram_gb_total}GB ${YELLOW}(${ram_pct}%)${NC}"
 pline "  |  |BAD |  |  |    |  |˚" "  ${CYAN}GPU${NC}      ${GREEN}$gpu${NC}"
@@ -120,14 +115,14 @@ pline "  |  |WOLF|  |  |    |  |"  "  ${CYAN}Disk${NC}     ${GREEN}$disk_used${N
 pline "  |  ------  |O ------  |"  "  ${CYAN}Arch${NC}     ${GREEN}$arch${NC}"
 
 # ── Network
-show_sep "  |  ------  |° ------  |"
+pline "  |  ------  |° ------  |" ""
 pline "♥ |  |    |  |  |    |  |"  "  ${CYAN}Local${NC}    ${GREEN}$ip_local${NC}"
 pline "L |  |    |  |  |    |  |•˛" "  ${CYAN}Public${NC}   ${GREEN}$ip_public${NC}"
 pline "A |  ------  |  ------  |。" "  ${CYAN}IPv6${NC}     ${GREEN}${ipv6_global}${NC}"
 pline "U |  ------  |  ------  |•" "  ${CYAN}Online${NC}   $online"
 
 # ── Processes
-show_sep "♥ |  |    |  |  |    |  |˚•"
+pline "♥ |  |    |  |  |    |  |˚•" ""
 pline "˚ |  |    |  |  |    |  |•˚" "  ${CYAN}Procs${NC}    ${GREEN}$proc_total${NC}"
 pline "  |  ------  |  ------  |"   "  ${CYAN}CPU Top${NC}  ${GREEN}$cpu_proc${NC} ${YELLOW}(${cpu_pct}%)${NC}"
 pline " _|_____________________|_"  "  ${CYAN}RAM Top${NC}  ${GREEN}$mem_proc${NC} ${YELLOW}(${mem_mb} MB)${NC}"
