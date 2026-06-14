@@ -2,11 +2,11 @@
 # Custom FZF configuration — migrated from .bash_vim
 
 # ═══ FZF Environment ═══
-export FZF_DEFAULT_OPTS="--height='30%' --layout='reverse'"
+export FZF_DEFAULT_OPTS="--height=40% --layout=reverse --bind=esc:cancel"
 export FZF_DEFAULT_COMMAND="find . -type f -not -path '*/\.git/*'"
 
 # ═══ FZF Ctrl+T Preview ═══
-FZF_CTRL_T_OPTS="--preview 'bat --style=full --color=always --line-range :500 {}' --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' --color --height='90%'"
+FZF_CTRL_T_OPTS="--preview 'bat --style=full --color=always --line-range :500 {}' --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' --color --height=90%"
 
 # ═══ FZF Compgen ═══
 _fzf_compgen_path() {
@@ -26,12 +26,12 @@ _fzf_comprun() {
     local command=$1
     shift
     case "$command" in
-        cd)           find . -type d -not -path '*/\.git/*' | fzf --preview 'tree -C {} -I ".git"| head -200' --color --height='40%' ;;
-        export|unset) fzf --preview "eval 'echo \$'{}" --height='40%' ;;
+        cd)           find . -type d -not -path '*/\.git/*' | fzf --preview 'tree -C {} -I ".git"| head -200' --height=40% ;;
+        export|unset) fzf --preview "eval 'echo \$'{}" --height=40% ;;
         " " | "")     echo error ;;
         *)            find . | fzf --preview 'bat --style=full --color=always --line-range :500 {}' \
                             --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
-                            --color --height='50%' ;;
+                            --height=50% ;;
     esac
 }
 
