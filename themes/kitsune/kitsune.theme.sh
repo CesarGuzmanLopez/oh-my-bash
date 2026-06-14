@@ -1,91 +1,87 @@
 #! bash oh-my-bash.module
-# kitsune theme — dark solid accents, bright text
-# Solid decorative elements use 256-color dark palette
-# Text elements use bright ANSI colors
+# kitsune theme — powerline with solid background blocks
 
 _omb_module_require plugin:battery
 
-# ── Dark solid colors for decorative elements (256-color palette) ──
-_KIT_DARK_TEAL='\[\e[38;5;30m\]'      # dark cyan/teal for box chars
-_KIT_DARK_GREEN='\[\e[38;5;22m\]'     # dark green for time brackets
-_KIT_DARK_OLIVE='\[\e[38;5;100m\]'    # dark yellow/olive for path
-_KIT_DARK_RED='\[\e[38;5;124m\]'      # dark red for errors
-_KIT_DARK_PURPLE='\[\e[38;5;91m\]'    # dark purple for accent
-_KIT_DARK_BLUE='\[\e[38;5;24m\]'      # dark blue for SCM
+_RST='\[\e[0m\]'
+_BG_TEAL='\[\e[48;5;23m\]'       # user info bg
+_BG_GREEN='\[\e[48;5;22m\]'      # time bg
+_BG_OLIVE='\[\e[48;5;58m\]'      # path bg
+_BG_PURPLE='\[\e[48;5;53m\]'     # SCM bg
+_BG_RED='\[\e[48;5;52m\]'        # error bg
+_FG_WHITE='\[\e[97;1m\]'         # bright white text
+_FG_GREEN='\[\e[92;1m\]'         # bright green text
+_FG_TEAL='\[\e[96;1m\]'          # bright cyan text
+_FG_RED='\[\e[91;1m\]'           # bright red text
+_FG_YELLOW='\[\e[93;1m\]'        # bright yellow text
+_BOX='\[\e[38;5;30m\]'           # box chars (no bg)
 
-# ── Bright text colors (from kitty palette) ──
-_KIT_BRIGHT_WHITE='\[\e[97;1m\]'      # color15 bold white - typed text
-_KIT_BRIGHT_GREEN='\[\e[92;1m\]'      # color10 bold green - status
-_KIT_BRIGHT_TEAL='\[\e[96;1m\]'       # color14 bold cyan - SSH, battery
-_KIT_BRIGHT_RED='\[\e[91m\]'          # color9 red - error
+_BG_BLUE='\[\e[48;5;24m\]'       # python venv bg
+_BG_ORANGE='\[\e[48;5;58m\]'     # npm bg
+_BG_CYAN='\[\e[48;5;23m\]'       # battery bg
 
 function __powerline_python_venv_prompt {
-  local python_venv=""
-  if [[ -n "${CONDA_DEFAULT_ENV}" ]]; then
-    python_venv="${CONDA_DEFAULT_ENV}"
-    PYTHON_VENV_CHAR=${CONDA_PYTHON_VENV_CHAR}
-  elif [[ -n "${VIRTUAL_ENV}" ]]; then
-    python_venv=$(basename "${VIRTUAL_ENV}")
-  fi
-  [[ -n "${python_venv}" ]] && echo "${_KIT_DARK_TEAL}${_KIT_DARK_GREEN}${python_venv}${_KIT_BRIGHT_GREEN}"
+  local v=""
+  [[ -n "${CONDA_DEFAULT_ENV}" ]] && v="${CONDA_DEFAULT_ENV}"
+  [[ -n "${VIRTUAL_ENV}" ]] && v=$(basename "${VIRTUAL_ENV}")
+  [[ -n "$v" ]] && echo "${_BG_BLUE}${_FG_WHITE} 🐍 $v ${_RST}"
+}
+
+function __npm_env_prompt {
+  [[ -n "${npm_package_name}" ]] && echo "${_BG_ORANGE}${_FG_YELLOW} 📦 ${npm_package_name} ${_RST}"
 }
 
 USER_INFO_SSH_CHAR=${I_USER_INFO_SSH_CHAR:=""}
 function __ssh_client {
-  if [[ -n "${SSH_CLIENT}" ]]; then
-    echo "${_KIT_DARK_TEAL}${_KIT_BRIGHT_TEAL}[${USER_INFO_SSH_CHAR}]${_KIT_BRIGHT_GREEN}"
-  fi
+  [[ -n "${SSH_CLIENT}" ]] && echo "${_FG_TEAL}[${USER_INFO_SSH_CHAR}]"
 }
 
 function _user_info {
-  local user_info=
   if [[ -n "${SSH_CLIENT}" ]]; then
-    user_info="${USER}|🌎@${HOSTNAME%%.*}"
+    echo "${USER}|🌎@${HOSTNAME%%.*}"
   else
-    user_info="${USER}|💻"
+    echo "${USER}|💻"
   fi
-  [[ -n "${user_info}" ]] && echo "${user_info}"
 }
 
 function get_symbol_user_info {
-  if [ "$(id -u)" = 0 ]; then
-    printf "💀"
-  else
-    printf "🌟"
-  fi
+  [[ "$(id -u)" == 0 ]] && printf "💀" || printf "🌟"
 }
 
 function _omb_theme_PROMPT_COMMAND() {
   local status=$?
 
-  local TITLEBAR
+  local TITLEBAR=""
   case $TERM in
     xterm* | screen)
       TITLEBAR=$'\1\e]0;'$USER@${HOSTNAME%%.*}:${PWD/#$HOME/~}$'\e\\\2' ;;
-    *)
-      TITLEBAR= ;;
   esac
 
   local SC=""
-  if ((status != 0)); then
-    SC="${_KIT_DARK_TEAL}-${_KIT_DARK_GREEN}(${_KIT_BRIGHT_RED}! $status ${_KIT_BRIGHT_GREEN})"
-  fi
+  ((status != 0)) && SC="${_BG_RED}${_FG_WHITE} ✗ $status ${_RST}"
 
-  local BC=$(battery_percentage)
-  [[ $BC == no && $BC == -1 ]] && BC=
-  BC=${BC:+${_KIT_DARK_TEAL}-${_KIT_DARK_GREEN}($BC%)}
+  local BC=""
+  local bpct=$(battery_percentage)
+  [[ "$bpct" != no && "$bpct" != -1 ]] && BC="${_BG_CYAN}${_FG_WHITE} 🔋 ${bpct}% ${_RST}"
 
   PS1=$TITLEBAR
-  PS1+="${_KIT_DARK_TEAL}┌─${_KIT_DARK_TEAL}${_KIT_BRIGHT_WHITE}[$(_user_info)]"
-  PS1+="${_KIT_DARK_GREEN}[\A]$(__powerline_python_venv_prompt)"
-  PS1+="${_KIT_DARK_TEAL}${_KIT_DARK_OLIVE}(\w)$(scm_prompt_info)\n"
-  PS1+="${_KIT_DARK_TEAL}└─${_KIT_DARK_TEAL}$(__ssh_client)$BC${_KIT_DARK_GREEN}"
-  PS1+="$SC${_KIT_BRIGHT_GREEN}$(get_symbol_user_info)${_KIT_DARK_TEAL}${_KIT_BRIGHT_WHITE} "
+  PS1+="${_BOX}┌─${_RST}"
+  PS1+="${_BG_TEAL}${_FG_WHITE} $(_user_info) ${_RST}"
+  PS1+="${_BG_GREEN}${_FG_WHITE} \A ${_RST}"
+  PS1+="$(__powerline_python_venv_prompt)"
+  PS1+="$(__npm_env_prompt)"
+  PS1+="${_BG_OLIVE}${_FG_WHITE} \w ${_RST}"
+  PS1+="${_BG_PURPLE}${_FG_WHITE} $(scm_prompt_info) ${_RST}"
+  PS1+="\n"
+  PS1+="${_BOX}└─${_RST}"
+  PS1+="$SC"
+  PS1+="$BC"
+  PS1+="${_FG_GREEN}$(get_symbol_user_info)${_RST} "
 }
 
-SCM_THEME_PROMPT_DIRTY=" ${_KIT_DARK_RED}✗"
-SCM_THEME_PROMPT_CLEAN=" ${_KIT_BRIGHT_GREEN}✓"
-SCM_THEME_PROMPT_PREFIX="${_KIT_DARK_TEAL}("
-SCM_THEME_PROMPT_SUFFIX="${_KIT_DARK_TEAL})${_omb_prompt_reset_color}"
+SCM_THEME_PROMPT_DIRTY=" ✗"
+SCM_THEME_PROMPT_CLEAN=" ✓"
+SCM_THEME_PROMPT_PREFIX=""
+SCM_THEME_PROMPT_SUFFIX="${_RST}"
 
 _omb_util_add_prompt_command _omb_theme_PROMPT_COMMAND
