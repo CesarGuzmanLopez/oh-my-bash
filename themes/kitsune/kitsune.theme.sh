@@ -61,13 +61,13 @@ function _omb_theme_PROMPT_COMMAND() {
 
   PS1=$TITLEBAR
   PS1+="${_FG_TEAL_D}┌─${_FG_WHITE}[$(_user_info)]"
-  PS1+=" ${_BG_GREEN}${_FG_WHITE}\A${_RST}"
+  PS1+=" ${_BG_GREEN}${_FG_WHITE}[\A]${_RST}"
   PS1+="$(__powerline_python_venv_prompt)"
   PS1+="$(__npm_env_prompt)"
   PS1+=" ${_FG_OLIVE_D}(\w)${_RST}"
-  PS1+=" ${_BG_PURPLE}${_FG_WHITE}$(scm_prompt_info)${_RST}"
+  PS1+=" ${_BG_PURPLE}${_FG_WHITE}($(scm_prompt_info))${_RST}"
   PS1+="\n${_FG_TEAL_D}└─${_RST}$SC$BC"
-  PS1+=" ${_FG_GREEN}$(get_symbol_user_info)${_FG_TEAL_D} ${_FG_WHITE} "
+  PS1+=" ${_FG_GREEN}$(get_symbol_user_info)${_FG_TEAL_D}${_FG_WHITE} "
 }
 
 SCM_THEME_PROMPT_DIRTY=" ✗"
