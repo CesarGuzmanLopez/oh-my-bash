@@ -2,7 +2,7 @@
 # Custom aliases + functions — todo en git, sin rutas absolutas hardcodeadas
 
 # ═══ Aliases ═══
-alias tardis="python3 $HOME/oh-my-bash-fork/tardis.sh"
+alias tardis="bash $HOME/oh-my-bash-fork/tardis.sh"
 alias updateAll='
   echo "📦 Actualizando paquetes (yay + pacman)..." &&
   yay -Syu --noconfirm --combinedupgrade &&
