@@ -1,6 +1,7 @@
 #!/bin/bash
-# Custom aliases — todos en git, sin rutas absolutas hardcodeadas
+# Custom aliases + functions — todo en git, sin rutas absolutas hardcodeadas
 
+# ═══ Aliases ═══
 alias tardis="python3 $HOME/oh-my-bash-fork/tardis.sh"
 alias updateAll='
   echo "📦 Actualizando paquetes (yay + pacman)..." &&
@@ -18,6 +19,25 @@ alias updateAll='
 alias refreshcolor="kitten @ set-colors $HOME/.config/kitty/current-theme.conf"
 alias proyectos="cd $HOME/Documents/Proyectos"
 alias agenda="firefox agenda.guzman-lopez.com"
-alias note="$HOME/oh-my-bash-fork/tardis.sh"
+alias note="$HOME/oh-my-bash-fork/note.sh"
 alias nota=note
+alias hoy="$HOME/oh-my-bash-fork/hoy.sh"
 alias dos2unixAll="find . -type f -print0 | xargs -0 dos2unix"
+alias a-grep='grep -lirs --exclude-dir=".git;.svn" --color=always'
+
+# ═══ Functions ═══
+
+function Afind() {
+    find "$1" -type f -not -path "*/.git/*"
+}
+export -f Afind
+
+function wallpaper_color() {
+    local bg_color
+    bg_color=$(echo "$COLORFGBG" | cut -d ";" -f2)
+    if [[ $bg_color -ge 8 ]]; then
+        echo "dark"
+    else
+        echo "light"
+    fi
+}
