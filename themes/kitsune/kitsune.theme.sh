@@ -1,11 +1,23 @@
 #! bash oh-my-bash.module
-# This is combination of works from two different people which I combined for my requirement.
-# Original PS1 was from reddit user /u/Allevil669 which I found in thread: https://www.reddit.com/r/linux/comments/1z33lj/linux_users_whats_your_favourite_bash_prompt/
-# I used that PS1 to the bash-it theme 'morris', and customized it to my liking. All credits to /u/Allevil669 and morris.
-#
-# prompt theming
+# kitsune theme — dark solid accents, bright text
+# Solid decorative elements use 256-color dark palette
+# Text elements use bright ANSI colors
 
 _omb_module_require plugin:battery
+
+# ── Dark solid colors for decorative elements (256-color palette) ──
+_KIT_DARK_TEAL='\[\e[38;5;30m\]'      # dark cyan/teal for box chars
+_KIT_DARK_GREEN='\[\e[38;5;22m\]'     # dark green for time brackets
+_KIT_DARK_OLIVE='\[\e[38;5;100m\]'    # dark yellow/olive for path
+_KIT_DARK_RED='\[\e[38;5;124m\]'      # dark red for errors
+_KIT_DARK_PURPLE='\[\e[38;5;91m\]'    # dark purple for accent
+_KIT_DARK_BLUE='\[\e[38;5;24m\]'      # dark blue for SCM
+
+# ── Bright text colors (from kitty palette) ──
+_KIT_BRIGHT_WHITE='\[\e[97;1m\]'      # color15 bold white - typed text
+_KIT_BRIGHT_GREEN='\[\e[92;1m\]'      # color10 bold green - status
+_KIT_BRIGHT_TEAL='\[\e[96;1m\]'       # color14 bold cyan - SSH, battery
+_KIT_BRIGHT_RED='\[\e[91m\]'          # color9 red - error
 
 function __powerline_python_venv_prompt {
   local python_venv=""
@@ -15,13 +27,13 @@ function __powerline_python_venv_prompt {
   elif [[ -n "${VIRTUAL_ENV}" ]]; then
     python_venv=$(basename "${VIRTUAL_ENV}")
   fi
-  [[ -n "${python_venv}" ]] && echo "$_omb_prompt_teal$_omb_prompt_bold_green${_omb_prompt_bold_black}(${python_venv})$_omb_prompt_bold_green"
+  [[ -n "${python_venv}" ]] && echo "${_KIT_DARK_TEAL}${_KIT_DARK_GREEN}${python_venv}${_KIT_BRIGHT_GREEN}"
 }
 
-USER_INFO_SSH_CHAR=${I_USER_INFO_SSH_CHAR:=""}
+USER_INFO_SSH_CHAR=${I_USER_INFO_SSH_CHAR:=""}
 function __ssh_client {
   if [[ -n "${SSH_CLIENT}" ]]; then
-    echo "$_omb_prompt_teal$_omb_prompt_bold_green${_omb_prompt_bold_white}[${USER_INFO_SSH_CHAR}]$_omb_prompt_bold_green"
+    echo "${_KIT_DARK_TEAL}${_KIT_BRIGHT_TEAL}[${USER_INFO_SSH_CHAR}]${_KIT_BRIGHT_GREEN}"
   fi
 }
 
@@ -34,21 +46,18 @@ function _user_info {
   fi
   [[ -n "${user_info}" ]] && echo "${user_info}"
 }
+
 function get_symbol_user_info {
-  local user_symbol=
   if [ "$(id -u)" = 0 ]; then
     printf "💀"
   else
-      printf "🌟"
+    printf "🌟"
   fi
 }
 
-
-HOST_INFO_HOST=${I_HOST_INFO_HOST:="⊥"}
 function _omb_theme_PROMPT_COMMAND() {
   local status=$?
 
-  # added TITLEBAR for updating the tab and window titles with the pwd
   local TITLEBAR
   case $TERM in
     xterm* | screen)
@@ -56,26 +65,27 @@ function _omb_theme_PROMPT_COMMAND() {
     *)
       TITLEBAR= ;;
   esac
-  local SC
-  if ((status == 0)); then
-    SC="" #SC="$_omb_prompt_teal-$_omb_prompt_bold_green(${_omb_prompt_green}✳️$_omb_prompt_bold_green)";
-  else
-    SC="$_omb_prompt_teal-$_omb_prompt_bold_green(${_omb_prompt_red}! $status $_omb_prompt_bold_green)";#pb_error
+
+  local SC=""
+  if ((status != 0)); then
+    SC="${_KIT_DARK_TEAL}-${_KIT_DARK_GREEN}(${_KIT_BRIGHT_RED}! $status ${_KIT_BRIGHT_GREEN})"
   fi
+
   local BC=$(battery_percentage)
   [[ $BC == no && $BC == -1 ]] && BC=
-  BC=${BC:+${_omb_prompt_teal}-${_omb_prompt_green}($BC%)}
-  PS1=$TITLEBAR"${_omb_prompt_teal}┌─${_omb_prompt_teal}${_omb_prompt_bold_white}[$(_user_info)]"
-  PS1+="${_omb_prompt_bold_green}[\A]$(__powerline_python_venv_prompt)"
-  PS1+="${_omb_prompt_teal}${_omb_prompt_bold_olive}(\w)$(scm_prompt_info)\n"
-  PS1+="${_omb_prompt_teal}└─${_omb_prompt_bold_teal}$(__ssh_client)$BC${_omb_prompt_green}"
-  PS1+="$SC${_omb_prompt_bold_green}$(get_symbol_user_info)${_omb_prompt_bold_teal}${_omb_prompt_bold_white} "
+  BC=${BC:+${_KIT_DARK_TEAL}-${_KIT_DARK_GREEN}($BC%)}
 
+  PS1=$TITLEBAR
+  PS1+="${_KIT_DARK_TEAL}┌─${_KIT_DARK_TEAL}${_KIT_BRIGHT_WHITE}[$(_user_info)]"
+  PS1+="${_KIT_DARK_GREEN}[\A]$(__powerline_python_venv_prompt)"
+  PS1+="${_KIT_DARK_TEAL}${_KIT_DARK_OLIVE}(\w)$(scm_prompt_info)\n"
+  PS1+="${_KIT_DARK_TEAL}└─${_KIT_DARK_TEAL}$(__ssh_client)$BC${_KIT_DARK_GREEN}"
+  PS1+="$SC${_KIT_BRIGHT_GREEN}$(get_symbol_user_info)${_KIT_DARK_TEAL}${_KIT_BRIGHT_WHITE} "
 }
-# scm theming
-SCM_THEME_PROMPT_DIRTY=" ${_omb_prompt_red}✗"
-SCM_THEME_PROMPT_CLEAN=" ${_omb_prompt_bold_green}✓"
-SCM_THEME_PROMPT_PREFIX="${_omb_prompt_bold_teal}("
-SCM_THEME_PROMPT_SUFFIX="${_omb_prompt_bold_teal})${_omb_prompt_reset_color}"
+
+SCM_THEME_PROMPT_DIRTY=" ${_KIT_DARK_RED}✗"
+SCM_THEME_PROMPT_CLEAN=" ${_KIT_BRIGHT_GREEN}✓"
+SCM_THEME_PROMPT_PREFIX="${_KIT_DARK_TEAL}("
+SCM_THEME_PROMPT_SUFFIX="${_KIT_DARK_TEAL})${_omb_prompt_reset_color}"
 
 _omb_util_add_prompt_command _omb_theme_PROMPT_COMMAND
