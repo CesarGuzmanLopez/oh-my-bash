@@ -1,43 +1,37 @@
-Oh My Bash is an open source, community-driven framework for managing your [bash](https://www.gnu.org/software/bash/) configuration.
+# 🌀 oh-my-bash-fork
 
-Sounds boring. Let's try again.
+Fork personal de [Oh My Bash](https://github.com/ohmybash/oh-my-bash) con tema **kitsune**, aliases personalizados, scripts útiles (TARDIS, hoy, note) y una selección de los plugins más usados listos desde el primer momento.
 
-Oh My Bash will not make you a 10x developer...but you might feel like one.
+## ⚡ Instalación
 
-Once installed, your terminal shell will become the talk of the town or your money back! With each keystroke in your command prompt, you'll take advantage of the hundreds of powerful plugins and beautiful themes. Strangers will come up to you in cafés and ask you, "that is amazing! are you some sort of genius?"
+Solo necesitas **una línea** en tu `~/.bashrc`:
 
-Finally, you'll begin to get the sort of attention that you have always felt you deserved. ...or maybe you'll use the time that you're saving to start flossing more often.
-
-## Getting Started
-
-### Prerequisites
-
-__Disclaimer:__ _Oh My Bash works best on macOS and Linux._
-
-* Unix-like operating system (macOS or Linux)
-* `curl` or `wget` should be installed
-* `git` should be installed
-
-### Basic Installation
-
-Oh My Bash is installed by running one of the following commands in your terminal. You can install this via the command-line with either `curl` or `wget`.
-
-#### via curl
-
-```shell
-bash -c "$(curl -fsSL https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh)"
+```bash
+source ~/oh-my-bash-fork/oh-my-bash.sh
 ```
 
-#### via wget
+El fork es **auto-contenido**:
+- ✅ **`$OSH` se detecta solo** — no necesitas exportarlo manualmente
+- ✅ **Tema kitsune** activado por defecto (con colores dinámicos desde la paleta de kitty)
+- ✅ **Plugins esenciales** pre-cargados: `git`, `colored-man-pages`, `sudo`, `bashmarks`, `battery`, `progress`, `cargo`, `npm`
+- ✅ **Aliases útiles**: `ll`, `c` (clear), `src` (recargar .bashrc), `path`, etc.
+- ✅ **Completions**: `git`, `ssh`, `composer`, `npm`, `docker`, `system`
+- ✅ **Auto-update desactivado** por ser un fork
 
-```shell
-bash -c "$(wget https://raw.githubusercontent.com/ohmybash/oh-my-bash/master/tools/install.sh -O -)"
+### Tokens personales (opcional)
+
+Crea un archivo `.env` en la raíz del fork (está en `.gitignore`):
+
+```bash
+TOKEN_telegram=tu_token
+TOKEN_USER_telegram=tu_user_id
+TOKEN_MEMOS=tu_token_memos
 ```
 
-This replaces `~/.bashrc` with the version provided by Oh My Bash. The original `.bashrc` is backed up with the name `~/.bashrc.omb-TIMESTAMP`.
-If `~/.bash_profile` does not exist, this also creates a new file `~/.bash_profile` with the default contents.
+### Tema kitsune — requisito opcional
 
-⚠️ If `~/.bash_profile` already existed before Oh My Bash is installed, please make sure that`~/.bash_profile` contains the line `source ~/.bashrc` or `. ~/.bashrc`.
+El tema usa colores dinámicos desde la paleta de **kitty**.  
+Si no usas kitty, los colores de fondo fallback se verán igual de bien.
 If not, please add the following three lines in `~/.bash_profile`:
 ```bash
 if [[ -f ~/.bashrc ]]; then

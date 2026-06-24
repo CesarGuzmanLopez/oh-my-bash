@@ -6,8 +6,8 @@
 # Para salir: exit (vuelve a tu shell original)
 # ============================================================
 
-# Configurar OSH al fork
-export OSH=/home/cesar/oh-my-bash-fork
+# OSH se auto-detecta en oh-my-bash.sh, pero forzamos la ruta por claridad
+export OSH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 # Configuración de oh-my-bash
 OSH_THEME="kitsune"

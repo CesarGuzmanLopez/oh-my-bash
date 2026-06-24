@@ -25,6 +25,22 @@ OMB_VERSINFO=(1 0 0 0 master noarch)
 OMB_VERSION="${OMB_VERSINFO[0]}.${OMB_VERSINFO[1]}.${OMB_VERSINFO[2]}(${OMB_VERSINFO[3]})-${OMB_VERSINFO[4]} (${OMB_VERSINFO[5]})"
 _omb_version=$((OMB_VERSINFO[0] * 10000 + OMB_VERSINFO[1] * 100 + OMB_VERSINFO[2]))
 
+# ═══════════════════════════════════════════════════════════════
+# AUTO-DETECT OSH (script's own directory)
+# ═══════════════════════════════════════════════════════════════
+# Allows the user to simply `source path/to/oh-my-bash.sh`
+# without manually setting $OSH first.
+[[ -z ${OSH-} ]] && OSH=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
+
+# ── Load .env secrets (tokens, API keys) — only if present ──
+# Create a .env file in the OSH root with your personal tokens.
+[[ -f $OSH/.env ]] && source "$OSH/.env"
+
+# ── Default: disable auto-update for this fork ──
+# The upstream check_for_upgrade would try to git-pull from ohmybash/oh-my-bash,
+# which is not what we want for a fork with custom changes.
+DISABLE_AUTO_UPDATE=${DISABLE_AUTO_UPDATE:-true}
+
 # Check for updates on initial load...
 if [[ $DISABLE_AUTO_UPDATE != true ]]; then
   source "$OSH"/tools/check_for_upgrade.sh
@@ -179,6 +195,12 @@ for _omb_init_file in "${_omb_init_files[@]}"; do
     source "$_omb_init_file"
 done
 unset -v _omb_init_files _omb_init_file
+
+# ── Default theme ──
+# Use "kitsune" as the default theme if the user hasn't set OSH_THEME.
+# The kitsune theme features dynamic background colors from the kitty
+# terminal palette, git status, Python venv, npm package, battery, etc.
+OSH_THEME=${OSH_THEME:-kitsune}
 
 # Load the theme
 if [[ $OSH_THEME ]]; then

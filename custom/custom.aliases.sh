@@ -1,8 +1,8 @@
 #!/bin/bash
-# Custom aliases + functions — todo en git, sin rutas absolutas hardcodeadas
+# Custom aliases + functions — all paths use $OSH (auto-detected)
 
 # ═══ Aliases ═══
-alias tardis="bash $HOME/oh-my-bash-fork/tardis.sh"
+alias tardis="bash $OSH/tardis.sh"
 alias updateAll='
   echo "📦 Actualizando paquetes (yay + pacman)..." &&
   yay -Syu --noconfirm --combinedupgrade &&
@@ -19,9 +19,9 @@ alias updateAll='
 alias refreshcolor="kitten @ set-colors $HOME/.config/kitty/current-theme.conf"
 alias proyectos="cd $HOME/Documents/Proyectos"
 alias agenda="firefox agenda.guzman-lopez.com"
-alias note="$HOME/oh-my-bash-fork/note.sh"
+alias note="$OSH/note.sh"
 alias nota=note
-alias hoy="$HOME/oh-my-bash-fork/hoy.sh"
+alias hoy="$OSH/hoy.sh"
 alias dos2unixAll="find . -type f -print0 | xargs -0 dos2unix"
 alias a-grep='grep -lirs --exclude-dir=".git;.svn" --color=always'
 
