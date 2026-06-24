@@ -127,6 +127,20 @@ else
   SHORT_HOST=${HOST/.*}
 fi
 
+# ── Default plugins / aliases / completions ──
+# If the user didn't define these arrays in .bashrc, use sensible defaults
+# so that git shortcuts (gc, gm, gl, ga, gco, etc.) and basic aliases work
+# out of the box without extra configuration.
+if [[ ${#plugins[@]} -eq 0 ]]; then
+  plugins=(git bashmarks)
+fi
+if [[ ${#aliases[@]} -eq 0 ]]; then
+  aliases=(general chmod ls misc)
+fi
+if [[ ${#completions[@]} -eq 0 ]]; then
+  completions=(git composer ssh)
+fi
+
 # Load all of the plugins that were defined in ~/.bashrc
 _omb_module_require_plugin "${plugins[@]}"
 
