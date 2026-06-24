@@ -129,16 +129,38 @@ fi
 
 # ── Default plugins / aliases / completions ──
 # If the user didn't define these arrays in .bashrc, use sensible defaults
-# so that git shortcuts (gc, gm, gl, ga, gco, etc.) and basic aliases work
-# out of the box without extra configuration.
+# so that git shortcuts (gc, gm, gl, ga, gco, etc.), colored man pages,
+# sudo toggle, battery info, and basic aliases work out of the box.
 if [[ ${#plugins[@]} -eq 0 ]]; then
-  plugins=(git bashmarks)
+  # Most used oh-my-bash plugins — all work without external dependencies
+  plugins=(
+    git                # ~200 git aliases: gc, gm, gl, ga, gco, gst, gp, gb, glog…
+    bashmarks          # directory bookmarks: s NAME, g NAME
+    colored-man-pages  # colorized man pages via LESS_TERMCAP
+    sudo               # double-Esc to toggle sudo on current command
+    battery            # battery_percentage() for prompts/laptops
+    progress           # progress bar for scripts
+    cargo              # adds ~/.cargo/bin to PATH if present
+    npm                # npm aliases: npmg (global), npmS (save), npmD (dev)
+  )
 fi
 if [[ ${#aliases[@]} -eq 0 ]]; then
-  aliases=(general chmod ls misc)
+  aliases=(
+    general            # ll, less -FSRXc, c (clear), src (reload), path, etc.
+    chmod              # chmod shortcuts
+    ls                 # ls enhancements: la, ll, l, lrt, etc.
+    misc               # misc shortcuts: h (history), tf (tailf), du1, etc.
+  )
 fi
 if [[ ${#completions[@]} -eq 0 ]]; then
-  completions=(git composer ssh)
+  completions=(
+    git                # git tab completion (branches, commands, files…)
+    ssh                # SSH host completion from ~/.ssh/config + known_hosts
+    composer           # composer command completion
+    npm                # npm command completion
+    docker             # docker command completion
+    system             # systemctl/service command completion
+  )
 fi
 
 # Load all of the plugins that were defined in ~/.bashrc
