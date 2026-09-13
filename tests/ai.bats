@@ -9,6 +9,11 @@ setup() {
 }
 
 @test "falla sin GROQ_API_KEY" {
+  cat > "$BATS_TEST_TMPDIR/bin/aichat" <<'EOF'
+#!/usr/bin/env bash
+exit 0
+EOF
+  chmod +x "$BATS_TEST_TMPDIR/bin/aichat"
   unset GROQ_API_KEY
   run ai "algo"
   [ "$status" -ne 0 ]
