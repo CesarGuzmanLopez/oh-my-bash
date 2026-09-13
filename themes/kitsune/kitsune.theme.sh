@@ -1,67 +1,241 @@
 #! bash oh-my-bash.module
-# kitsune theme — dynamic bg colors from kitty wallpaper palette
+# kitsune theme — dynamic palette with dark/light/ansi fallback
+#
+# Color modes (OSH_THEME_SCHEME):
+#   auto  (default) detect at runtime
+#   dark  force dark family (dark blocks + bright text)
+#   light force light family (pastel blocks + dark text)
+#   ansi  use only the terminal's own ANSI colors (no RGB blocks). This is the
+#         fallback for sessions where the local desktop palette is unknown,
+#         e.g. SSH from Windows/macOS or a non-KDE/kitty terminal. It adapts to
+#         whatever light/dark theme the terminal has.
+#
+# Detection order in `auto`:
+#   1. kitty live colors (`kitten @ get-colors background`)
+#   2. remote session without kitty (SSH)   → ansi
+#   3. KDE Plasma (`kreadconfig6`/`kreadconfig5`)
+#   4. GNOME / freedesktop (`gsettings`)
+#   5. $COLORFGBG
+#   6. fallback                              → ansi
 
 _omb_module_require plugin:battery
 
 _RST='\[\e[0m\]'
-_FG_WHITE='\[\e[97;1m\]'
-_FG_GREEN='\[\e[92;1m\]'
-_FG_TEAL='\[\e[96;1m\]'
-_FG_RED='\[\e[91;1m\]'
-_FG_YELLOW='\[\e[93;1m\]'
-_FG_TEAL_D='\[\e[38;5;30m\]'
-_FG_OLIVE_D='\[\e[38;5;100m\]'
 
-# Load dynamic background colors from kitty palette
-function _omb_theme_load_colors {
-  local conf="$HOME/.config/kitty/current-theme.conf"
-  [[ -f "$conf" ]] || return
+# ── helpers ────────────────────────────────────────────────────
 
-  # Extract color1-6 hex values (dark versions → good for bg)
-  local colors=()
-  local i c hex r g b
-  for ((i=1; i<=6; i++)); do
-    hex=$(grep -m1 "^color${i}" "$conf" 2>/dev/null | grep -oE '#[0-9a-fA-F]{6}' | tail -1)
-    if [[ -n "$hex" ]]; then
-      r=$((16#${hex:1:2}))
-      g=$((16#${hex:3:2}))
-      b=$((16#${hex:5:2}))
-      # Darken to 30% for bg
-      r=$((r * 30 / 100))
-      g=$((g * 30 / 100))
-      b=$((b * 30 / 100))
-      colors+=("\e[48;2;${r};${g};${b}m")
-    fi
-  done
-
-  # Fallback defaults if colors not found
-  local _defaults=('\e[48;5;22m' '\e[48;5;52m' '\e[48;5;23m' '\e[48;5;53m' '\e[48;5;58m' '\e[48;5;24m')
-
-  for ((i=0; i<6; i++)); do
-    [[ -z "${colors[$i]}" ]] && colors[$i]="${_defaults[$i]}"
-  done
-
-  # time=green(color2), SCM=purple(color5), error=red(color1), python=blue(color4), npm=orange(color3), env=teal(color6)
-  _BG_TIME="\[${colors[1]}\]"       # color2 darkened
-  _BG_SCM="\[${colors[4]}\]"        # color5 darkened
-  _BG_ERROR="\[${colors[0]}\]"      # color1 darkened
-  _BG_PYTHON="\[${colors[3]}\]"     # color4 darkened
-  _BG_NPM="\[${colors[2]}\]"        # color3 darkened
-  _BG_ENV="\[${colors[5]}\]"        # color6 darkened
+function _omb_theme_in_kitty {
+  [[ -n ${KITTY_WINDOW_ID-} ]] && _omb_util_command_exists kitten
 }
 
-# Initialize colors
+# `kitten @ get-colors` with a timeout so it can never hang a remote shell
+function _omb_theme_kitten_colors {
+  if _omb_util_command_exists timeout; then
+    timeout 1 kitten @ get-colors 2> /dev/null
+  else
+    kitten @ get-colors 2> /dev/null
+  fi
+}
+
+# Is there a source whose value can change while the shell is alive?
+function _omb_theme_has_dynamic_source {
+  _omb_theme_in_kitty && return 0
+  [[ -n ${KDE_FULL_SESSION-}${KDE_SESSION_VERSION-} ]] && return 0
+  case ${XDG_CURRENT_DESKTOP-} in *KDE*) return 0 ;; esac
+  _omb_util_command_exists gsettings && return 0
+  return 1
+}
+
+# Print "dark" or "light" from a color spec (#rrggbb or r,g,b).
+function _omb_theme_luminance {
+  local spec=$1 r g b
+  if [[ $spec == \#* ]]; then
+    r=$((16#${spec:1:2})); g=$((16#${spec:3:2})); b=$((16#${spec:5:2}))
+  elif [[ $spec =~ ^([0-9]+),([0-9]+),([0-9]+)$ ]]; then
+    r=${BASH_REMATCH[1]}; g=${BASH_REMATCH[2]}; b=${BASH_REMATCH[3]}
+  else
+    return 1
+  fi
+  # Perceived luminance (ITU-R BT.601)
+  local lum=$(( (r * 299 + g * 587 + b * 114) / 1000 ))
+  if (( lum < 128 )); then printf 'dark\n'; else printf 'light\n'; fi
+}
+
+# Print the active scheme: dark | light | ansi
+function _omb_theme_detect_scheme {
+  # 1) Explicit override
+  case ${OSH_THEME_SCHEME:-auto} in
+    dark | light | ansi) printf '%s\n' "$OSH_THEME_SCHEME"; return ;;
+  esac
+
+  # 2) kitty live colors
+  if _omb_theme_in_kitty; then
+    local bg
+    bg=$(_omb_theme_kitten_colors | awk '$1 == "background" { print $2; exit }')
+    [[ -n $bg ]] && _omb_theme_luminance "$bg" && return
+  fi
+
+  # 3) Remote session without kitty: the local desktop palette does not
+  #    describe the client terminal (Windows/macOS/other), so just use the
+  #    terminal's own colors.
+  if [[ -n ${SSH_CLIENT-}${SSH_CONNECTION-}${SSH_TTY-} ]]; then
+    printf 'ansi\n'; return
+  fi
+
+  # 4) KDE Plasma
+  local kread=kreadconfig6
+  _omb_util_command_exists "$kread" || kread=kreadconfig5
+  if _omb_util_command_exists "$kread"; then
+    local cs
+    cs=$("$kread" --file kdeglobals --group General --key ColorScheme 2> /dev/null)
+    case $cs in
+      *[Dd]ark*) printf 'dark\n'; return ;;
+      *[Ll]ight*) printf 'light\n'; return ;;
+    esac
+    local bg
+    bg=$("$kread" --file kdeglobals --group Colors:Window --key BackgroundNormal 2> /dev/null)
+    [[ -n $bg ]] && _omb_theme_luminance "$bg" && return
+  fi
+
+  # 5) GNOME / freedesktop portal preference
+  if _omb_util_command_exists gsettings; then
+    local cs
+    cs=$(gsettings get org.gnome.desktop.interface color-scheme 2> /dev/null)
+    case $cs in
+      *prefer-dark*) printf 'dark\n'; return ;;
+      *prefer-light*) printf 'light\n'; return ;;
+    esac
+    cs=$(gsettings get org.gnome.desktop.interface gtk-theme 2> /dev/null)
+    case $cs in
+      *[Dd]ark*) printf 'dark\n'; return ;;
+      *[Ll]ight*) printf 'light\n'; return ;;
+    esac
+  fi
+
+  # 6) $COLORFGBG (e.g. "15;0" → background index 0 = dark)
+  if [[ -n ${COLORFGBG-} ]]; then
+    local bgidx=${COLORFGBG##*;}
+    if [[ $bgidx =~ ^[0-9]+$ ]]; then
+      if (( bgidx < 8 )); then printf 'dark\n'; else printf 'light\n'; fi
+      return
+    fi
+  fi
+
+  # 7) fallback: respect the terminal's own color family
+  printf 'ansi\n'
+}
+
+# ── palette ────────────────────────────────────────────────────
+
+function _omb_theme_load_colors {
+  local scheme
+  scheme=$(_omb_theme_detect_scheme)
+  OSH_THEME_SCHEME_ACTIVE=$scheme
+
+  # ansi / fallback: no RGB blocks, terminal palette defines everything.
+  if [[ $scheme == ansi ]]; then
+    _BG_TIME='' _BG_SCM='' _BG_ERROR='' _BG_PYTHON='' _BG_NPM='' _BG_ENV=''
+    _FG_WHITE='\[\e[39m\]'   # default foreground (adapts to terminal)
+    _FG_GREEN='\[\e[32m\]'
+    _FG_TEAL='\[\e[36m\]'
+    _FG_RED='\[\e[31m\]'
+    _FG_YELLOW='\[\e[33m\]'
+    _FG_TEAL_D='\[\e[36m\]'
+    _FG_OLIVE_D='\[\e[33m\]'
+    return
+  fi
+
+  local -a hex_src=()
+  local i val conf
+
+  # 1) live kitty colors
+  if _omb_theme_in_kitty; then
+    local -a live=()
+    while IFS= read -r val; do
+      live+=("$val")
+    done < <(_omb_theme_kitten_colors)
+    for ((i = 1; i <= 6; i++)); do
+      hex_src[$((i - 1))]=$(printf '%s\n' "${live[@]}" | awk -v k="color$i" '$1 == k { print $2; exit }')
+    done
+  fi
+
+  # 2) kitty theme files (scheme-specific auto conf, then legacy current-theme)
+  for conf in \
+    "$HOME/.config/kitty/${scheme}-theme.auto.conf" \
+    "$HOME/.config/kitty/current-theme.conf"; do
+    [[ -f $conf ]] || continue
+    for ((i = 1; i <= 6; i++)); do
+      if [[ -z ${hex_src[$((i - 1))]} ]]; then
+        hex_src[$((i - 1))]=$(grep -m1 -E "^color${i}[[:space:]]" "$conf" 2> /dev/null |
+          grep -oE '#[0-9a-fA-F]{6}' | tail -1)
+      fi
+    done
+    [[ -n ${hex_src[5]} ]] && break
+  done
+
+  # 3) defaults (kitty dark palette)
+  local -a defaults=('#ff6b81' '#7ee0a0' '#ffc061' '#7aa2ff' '#c9a6ff' '#6fe0e0')
+  for ((i = 0; i < 6; i++)); do
+    [[ -z ${hex_src[$i]} ]] && hex_src[$i]=${defaults[$i]}
+  done
+
+  # Derive backgrounds (solid blocks)
+  local -a bg=()
+  local hex r g b
+  for ((i = 0; i < 6; i++)); do
+    hex=${hex_src[$i]}
+    r=$((16#${hex:1:2})); g=$((16#${hex:3:2})); b=$((16#${hex:5:2}))
+    if [[ $scheme == light ]]; then
+      # Pastel: blend accent with white (82%)
+      r=$((r + (255 - r) * 82 / 100))
+      g=$((g + (255 - g) * 82 / 100))
+      b=$((b + (255 - b) * 82 / 100))
+    else
+      # Dark: keep 30% of the accent
+      r=$((r * 30 / 100)); g=$((g * 30 / 100)); b=$((b * 30 / 100))
+    fi
+    bg[$i]="\e[48;2;${r};${g};${b}m"
+  done
+
+  _BG_TIME="\[${bg[1]}\]"   # color2
+  _BG_SCM="\[${bg[4]}\]"    # color5
+  _BG_ERROR="\[${bg[0]}\]"  # color1
+  _BG_PYTHON="\[${bg[3]}\]" # color4
+  _BG_NPM="\[${bg[2]}\]"    # color3
+  _BG_ENV="\[${bg[5]}\]"    # color6
+
+  # Foreground family
+  if [[ $scheme == light ]]; then
+    _FG_WHITE='\[\e[30;1m\]'
+    _FG_GREEN='\[\e[32;1m\]'
+    _FG_TEAL='\[\e[36;1m\]'
+    _FG_RED='\[\e[31;1m\]'
+    _FG_YELLOW='\[\e[33;1m\]'
+    _FG_TEAL_D='\[\e[38;5;24m\]'
+    _FG_OLIVE_D='\[\e[38;5;94m\]'
+  else
+    _FG_WHITE='\[\e[97;1m\]'
+    _FG_GREEN='\[\e[92;1m\]'
+    _FG_TEAL='\[\e[96;1m\]'
+    _FG_RED='\[\e[91;1m\]'
+    _FG_YELLOW='\[\e[93;1m\]'
+    _FG_TEAL_D='\[\e[38;5;30m\]'
+    _FG_OLIVE_D='\[\e[38;5;100m\]'
+  fi
+}
+
+# Initialize
 _omb_theme_load_colors
 
 function __powerline_python_venv_prompt {
   local v=""
   [[ -n "${CONDA_DEFAULT_ENV}" ]] && v="${CONDA_DEFAULT_ENV}"
   [[ -n "${VIRTUAL_ENV}" ]] && v=$(basename "${VIRTUAL_ENV}")
-  [[ -n "$v" ]] && echo " ${_BG_PYTHON:-\[\e[48;5;24m\]}${_FG_WHITE} 🐍 $v ${_RST}"
+  [[ -n "$v" ]] && echo " ${_BG_PYTHON-}${_FG_WHITE} 🐍 $v ${_RST}"
 }
 
 function __npm_env_prompt {
-  [[ -n "${npm_package_name}" ]] && echo " ${_BG_NPM:-\[\e[48;5;58m\]}${_FG_YELLOW} 📦 ${npm_package_name} ${_RST}"
+  [[ -n "${npm_package_name}" ]] && echo " ${_BG_NPM-}${_FG_YELLOW} 📦 ${npm_package_name} ${_RST}"
 }
 
 function _user_info {
@@ -76,13 +250,13 @@ function _omb_theme_PROMPT_COMMAND() {
   local status=$?
   local TITLEBAR=""
   case $TERM in
-    xterm*|screen) TITLEBAR=$'\1\e]0;'$USER@${HOSTNAME%%.*}:${PWD/#$HOME/~}$'\e\\\2' ;;
+    xterm* | screen) TITLEBAR=$'\1\e]0;'$USER@${HOSTNAME%%.*}:${PWD/#$HOME/~}$'\e\\\2' ;;
   esac
 
   local SC=""
-  ((status != 0)) && SC=" ${_BG_ERROR:-\[\e[48;5;52m\]}${_FG_WHITE} ✗ $status ${_RST}"
+  ((status != 0)) && SC=" ${_BG_ERROR-}${_FG_WHITE} ✗ $status ${_RST}"
 
-  local bpct=$(battery_percentage 2>/dev/null)
+  local bpct=$(battery_percentage 2> /dev/null)
   local BC=""
   if [[ -n "$bpct" && "$bpct" != "no" && "$bpct" != "-1" && "$bpct" != "100%" && "$bpct" != "0%" ]]; then
     BC=" ${_FG_TEAL_D}($bpct)${_RST}"
@@ -90,14 +264,14 @@ function _omb_theme_PROMPT_COMMAND() {
 
   PS1=$TITLEBAR
   PS1+="${_FG_TEAL_D}┌─${_FG_WHITE}[$(_user_info)]"
-  PS1+=" ${_BG_TIME:-\[\e[48;5;22m\]}${_FG_WHITE}[\A]${_RST}"
+  PS1+=" ${_BG_TIME-}${_FG_WHITE}[\A]${_RST}"
   PS1+="$(__powerline_python_venv_prompt)"
   PS1+="$(__npm_env_prompt)"
   PS1+=" ${_FG_OLIVE_D}(\w)${_RST}"
 
   local scm_out=$(scm_prompt_info)
   if [[ -n "$scm_out" ]]; then
-    PS1+=" ${_BG_SCM:-\[\e[48;5;53m\]}${_FG_WHITE}(${scm_out})${_RST}"
+    PS1+=" ${_BG_SCM-}${_FG_WHITE}(${scm_out})${_RST}"
   fi
 
   PS1+="\n${_FG_TEAL_D}└─${_RST}$SC$BC"
@@ -110,3 +284,31 @@ SCM_THEME_PROMPT_PREFIX=""
 SCM_THEME_PROMPT_SUFFIX=""
 
 _omb_util_add_prompt_command _omb_theme_PROMPT_COMMAND
+
+# ═══════════════════════════════════════════════════════════════
+#  React to scheme changes at runtime
+# ═══════════════════════════════════════════════════════════════
+# Only runs when there is a source that can actually change (kitty / KDE /
+# GNOME). In a plain SSH session it stays in `ansi` mode and the watcher is
+# a no-op, so there is no overhead.
+
+_omb_theme_scheme_checked=0
+
+function _omb_theme_reload_colors {
+  _omb_theme_scheme_checked=$SECONDS
+  _omb_theme_load_colors
+  _omb_theme_PROMPT_COMMAND
+}
+
+function _omb_theme_scheme_watch {
+  _omb_theme_has_dynamic_source || return 0
+  local interval=${OSH_THEME_SCHEME_INTERVAL:-10}
+  (( SECONDS - _omb_theme_scheme_checked < interval )) && return
+  _omb_theme_scheme_checked=$SECONDS
+  local scheme
+  scheme=$(_omb_theme_detect_scheme 2> /dev/null)
+  [[ -n $scheme && $scheme != "${OSH_THEME_SCHEME_ACTIVE:-}" ]] || return
+  _omb_theme_load_colors
+}
+
+_omb_util_add_prompt_command _omb_theme_scheme_watch

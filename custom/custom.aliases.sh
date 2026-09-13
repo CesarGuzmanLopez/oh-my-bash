@@ -16,7 +16,7 @@ alias updateAll='
   yay -Qdtq | xargs -r sudo pacman -Rns --noconfirm &&
   echo "✅ Todo actualizado y limpio"
 '
-alias refreshcolor="kitten @ set-colors $HOME/.config/kitty/current-theme.conf"
+alias refreshcolor='if command -v kitten >/dev/null 2>&1; then kitten @ load-config; fi; if [[ $(type -t _omb_theme_reload_colors) == function ]]; then _omb_theme_reload_colors; fi'
 alias proyectos="cd $HOME/Documents/Proyectos"
 alias agenda="firefox agenda.guzman-lopez.com"
 alias note="$OSH/note.sh"
@@ -28,7 +28,7 @@ alias a-grep='grep -lirs --exclude-dir=".git;.svn" --color=always'
 # ═══ Functions ═══
 
 function Afind() {
-    find "$1" -type f -not -path "*/.git/*"
+    find "${1:-.}" -type f -not -path "*/.git/*"
 }
 export -f Afind
 

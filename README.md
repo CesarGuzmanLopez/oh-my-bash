@@ -12,9 +12,9 @@ source ~/oh-my-bash-fork/oh-my-bash.sh
 
 El fork es **auto-contenido**:
 - ✅ **`$OSH` se detecta solo** — no necesitas exportarlo manualmente
-- ✅ **Tema kitsune** activado por defecto (con colores dinámicos desde la paleta de kitty)
+- ✅ **Tema kitsune** activado por defecto: paleta dinámica, ajuste automático **claro/oscuro** (KDE, GNOME, kitty o `COLORFGBG`) y **respaldo ANSI** para SSH desde Windows/Mac
 - ✅ **Plugins esenciales** pre-cargados: `git`, `colored-man-pages`, `sudo`, `bashmarks`, `battery`, `progress`, `cargo`, `npm`
-- ✅ **Aliases útiles**: `ll`, `c` (clear), `src` (recargar .bashrc), `path`, etc.
+- ✅ **Aliases útiles**: `ll`, `c` (clear), `src` (recargar .bashrc), `path`, `ssh` (sin el error `xterm-kitty`), etc.
 - ✅ **Completions**: `git`, `ssh`, `composer`, `npm`, `docker`, `system`
 - ✅ **Auto-update desactivado** por ser un fork
 
@@ -30,13 +30,66 @@ TOKEN_MEMOS=tu_token_memos
 
 ### Tema kitsune — requisito opcional
 
-El tema usa colores dinámicos desde la paleta de **kitty**.  
-Si no usas kitty, los colores de fondo fallback se verán igual de bien.
-If not, please add the following three lines in `~/.bash_profile`:
+El tema usa colores dinámicos desde la paleta de **kitty**.
+Si no usas kitty, usa la detección de esquema (KDE/GNOME/`COLORFGBG`) con colores de respaldo.
+Si tu shell no carga `~/.bashrc` (login shells), añade estas tres líneas en `~/.bash_profile`:
 ```bash
 if [[ -f ~/.bashrc ]]; then
   source ~/.bashrc
 fi
+```
+
+### Tema claro/oscuro (KDE, GNOME, kitty)
+
+El tema **kitsune** tiene tres modos de color:
+
+- **dark**: fondos sólidos oscuros (acentos al 30 %) y texto claro.
+- **light**: fondos pastel y texto oscuro.
+- **ansi**: sin bloques RGB; usa solo los colores ANSI del terminal. Se adapta a cualquier terminal (claro u oscuro) y es el modo de respaldo cuando no se puede detectar el esquema.
+
+Orden de detección en `auto`:
+
+1. **kitty** en vivo (`kitten @ get-colors background`)
+2. sesión **remota sin kitty** (SSH desde Windows/macOS): → `ansi`
+3. **KDE Plasma** (`kreadconfig6`/`kreadconfig5`)
+4. **GNOME** (`gsettings color-scheme` / `gtk-theme`)
+5. `$COLORFGBG`
+6. respaldo → `ansi`
+
+Así, con KDE/kitty el tema es **dinámico**; conectándote por SSH desde Windows o Mac (sin KDE/kitty) queda **funcional** usando la familia de colores del terminal. El watcher solo se ejecuta cuando hay una fuente que puede cambiar (kitty/KDE/GNOME), así que en SSH no consume nada.
+
+Variables:
+
+```bash
+OSH_THEME_SCHEME=auto          # auto (por defecto) | dark | light | ansi
+OSH_THEME_SCHEME_INTERVAL=10   # segundos entre re-detecciones (solo si hay fuente dinámica)
+```
+
+Para forzar y recargar sin reabrir el shell:
+
+```bash
+OSH_THEME_SCHEME=light _omb_theme_reload_colors
+refreshcolor              # recarga kitty (si existe) + re-aplica el tema
+```
+
+### SSH desde kitty — `'xterm-kitty': unknown terminal type`
+
+`kitty` define `TERM=xterm-kitty`, que no existe en la mayoría de servidores. Además, `kitty +kitten ssh` copia la terminfo y exporta `TERMINFO=$HOME/.terminfo`, así que al hacer `sudo -i`/`su` cambia el HOME y root deja de encontrarla.
+
+Este fork lo soluciona así:
+
+| Comando | Qué hace |
+|---|---|
+| `ssh` | usa `TERM=xterm-256color` + `kitty +kitten ssh`. `xterm-256color` existe en todos los servidores y sobrevive a `su`/`sudo -i`. |
+| `ssh-kitty` | integración completa de kitty (`TERM=xterm-kitty`). |
+| `ssh-term-fix usuario@host` | instala `xterm-kitty` en `/usr/share/terminfo` del remoto (solución global para root/su/sudo). |
+| `ssh-term-safe usuario@host` | fuerza `TERM=xterm-256color` en la sesión remota sin tocar el servidor. |
+| `kitty-term-info` | comprueba si la terminfo local está disponible. |
+
+Ejemplo de un host que da el error, arreglado de forma permanente:
+
+```bash
+ssh-term-fix root@ubuntu
 ```
 
 ## Using Oh My Bash
