@@ -288,9 +288,63 @@ function get_symbol_user_info {
   [[ "$(id -u)" == 0 ]] && printf "💀" || printf "🌟"
 }
 
+# ── SCM prompt info ──
+# Caches "is this a git repo?" per directory so non-repo dirs never spawn git.
+# Optionally computes the branch in the background (OSH_PROMPT_ASYNC_GIT=1),
+# showing the previous value so a slow repo never blocks the prompt.
+# _omb_theme_scm_refresh() runs in the parent shell (from PROMPT_COMMAND) so
+# this cached state persists across prompts.
+_omb_theme_scm_dir=
+_omb_theme_scm_is_repo=0
+_omb_theme_scm_async_dir=
+_omb_theme_scm_async_pid=
+
+function _omb_theme_scm_check_repo {
+  if [[ ${PWD-} != "$_omb_theme_scm_dir" ]]; then
+    _omb_theme_scm_dir=$PWD
+    if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+      _omb_theme_scm_is_repo=1
+    else
+      _omb_theme_scm_is_repo=0
+    fi
+  fi
+  ((_omb_theme_scm_is_repo))
+}
+
+# Runs in the parent shell: updates the repo cache and, in async mode,
+# launches the background worker (so the pid survives to the next prompt).
+function _omb_theme_scm_refresh {
+  _omb_theme_scm_check_repo || return 0
+  [[ ${OSH_PROMPT_ASYNC_GIT:-0} == 1 ]] || return 0
+  [[ -n $_omb_theme_scm_async_dir ]] ||
+    _omb_theme_scm_async_dir=${TMPDIR:-/tmp}/omb-prompt-$$
+  [[ -d $_omb_theme_scm_async_dir ]] || mkdir -p "$_omb_theme_scm_async_dir" 2> /dev/null
+  local key f
+  key=$(printf '%s' "$PWD" | cksum | awk '{print $1}')
+  f="$_omb_theme_scm_async_dir/$key"
+  if [[ -z $_omb_theme_scm_async_pid ]] || ! kill -0 "$_omb_theme_scm_async_pid" 2> /dev/null; then
+    (scm_prompt_info > "$f.tmp" 2> /dev/null && mv "$f.tmp" "$f") > /dev/null 2>&1 &
+    _omb_theme_scm_async_pid=$!
+  fi
+}
+
+# Emits the SCM info (runs inside a command substitution).
+function _omb_theme_scm_prompt_info {
+  if [[ ${OSH_PROMPT_ASYNC_GIT:-0} == 1 ]]; then
+    [[ -n $_omb_theme_scm_async_dir ]] || return 0
+    local key f
+    key=$(printf '%s' "$PWD" | cksum | awk '{print $1}')
+    f="$_omb_theme_scm_async_dir/$key"
+    [[ -r $f ]] && cat "$f"
+  else
+    scm_prompt_info 2> /dev/null
+  fi
+}
+
 function _omb_theme_PROMPT_COMMAND() {
   local status=$?
   local TITLEBAR=""
+  _omb_theme_scm_refresh
   case $TERM in
     xterm* | screen) TITLEBAR=$'\1\e]0;'$USER@${HOSTNAME%%.*}:${PWD/#$HOME/~}$'\e\\\2' ;;
   esac
@@ -298,7 +352,8 @@ function _omb_theme_PROMPT_COMMAND() {
   local SC=""
   ((status != 0)) && SC=" ${_BG_ERROR-}${_FG_WHITE} ✗ $status ${_RST}"
 
-  local bpct=$(battery_percentage 2> /dev/null)
+  local bpct
+  bpct=$(battery_percentage 2> /dev/null)
   local BC=""
   if [[ -n "$bpct" && "$bpct" != "no" && "$bpct" != "-1" && "$bpct" != "100%" && "$bpct" != "0%" ]]; then
     BC=" ${_FG_TEAL_D}($bpct)${_RST}"
@@ -311,7 +366,8 @@ function _omb_theme_PROMPT_COMMAND() {
   PS1+="$(__npm_env_prompt)"
   PS1+=" ${_FG_OLIVE_D}(\w)${_RST}"
 
-  local scm_out=$(scm_prompt_info)
+  local scm_out=""
+  ((_omb_theme_scm_is_repo)) && scm_out=$(_omb_theme_scm_prompt_info)
   if [[ -n "$scm_out" ]]; then
     PS1+=" ${_BG_SCM-}${_FG_WHITE}(${scm_out})${_RST}"
   fi

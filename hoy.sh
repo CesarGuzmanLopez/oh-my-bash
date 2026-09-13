@@ -15,6 +15,13 @@ for _dep in curl jq; do
     command -v "$_dep" > /dev/null 2>&1 || { echo "hoy: falta '$_dep'." >&2; exit 1; }
 done
 
+# ── Clave del clima (defínela en .env como WEATHERAPI_KEY) ──
+weather_key=${WEATHERAPI_KEY:-${API_WHWATHERAPI_KEY:-}}
+if [[ -z $weather_key ]]; then
+    echo "hoy: falta WEATHERAPI_KEY (defínela en ~/oh-my-bash-fork/.env)." >&2
+    exit 1
+fi
+
 # ── Caché de respuestas de API (10 min por defecto) ──
 HOY_CACHE_TTL=${HOY_CACHE_TTL:-600}
 _hoy_cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}/hoy
@@ -64,7 +71,8 @@ get_emoji() {
             else emoji="☀️"; fi
             ;;
         is_day)
-            local hour=$(date -d "$value" "+%H")
+            local hour
+            hour=$(date -d "$value" "+%H")
             if [ "$hour" -ge 6 ] && [ "$hour" -lt 18 ]; then emoji="🌞"
             else emoji="🌙"; fi
             ;;
@@ -113,13 +121,6 @@ response=$(_hoy_fetch ipinfo "$API_URL")
 # Extrae la latitud y longitud de la respuesta JSON
 latitude=$(echo "$response" | jq -r '.loc | split(",")[0]')
 longitude=$(echo "$response" | jq -r '.loc | split(",")[1]')
-
-# Clave de la API del clima (defínela en .env como WEATHERAPI_KEY)
-weather_key=${WEATHERAPI_KEY:-${API_WHWATHERAPI_KEY:-}}
-if [[ -z $weather_key ]]; then
-    echo "hoy: falta WEATHERAPI_KEY (defínela en ~/oh-my-bash-fork/.env)." >&2
-    exit 1
-fi
 
 # Define la URL de la API
 API_URL="https://api.weatherapi.com/v1/forecast.json?key=${weather_key}&q=${latitude},${longitude}&days=3&aqi=no&alerts=no"

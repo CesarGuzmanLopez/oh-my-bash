@@ -21,6 +21,15 @@ if ((_omb_bash_version < 30200)); then
   return 1
 fi
 
+# Initialization must not abort a shell running with `set -e`: some modules,
+# optional completions or `eval "$(tool init)"` may legitimately return
+# non-zero. Disable errexit for the whole init and restore it at the end.
+_omb_init_errexit=
+if [[ $- == *e* ]]; then
+  _omb_init_errexit=1
+  set +e
+fi
+
 OMB_VERSINFO=(1 0 0 0 master noarch)
 OMB_VERSION="${OMB_VERSINFO[0]}.${OMB_VERSINFO[1]}.${OMB_VERSINFO[2]}(${OMB_VERSINFO[3]})-${OMB_VERSINFO[4]} (${OMB_VERSINFO[5]})"
 _omb_version=$((OMB_VERSINFO[0] * 10000 + OMB_VERSINFO[1] * 100 + OMB_VERSINFO[2]))
@@ -57,7 +66,8 @@ if [[ -n ${OSH_PROFILE-} ]]; then
       return
     fi
     # Fallback: EPOCHREALTIME (bash >= 5) seconds.microseconds -> nanoseconds
-    local t=${EPOCHREALTIME:-0} s=${t%.*} us=${t#*.}000000
+    local t=${EPOCHREALTIME:-0}
+    local s=${t%.*} us=${t#*.}000000
     printf '%s' "$((s * 1000000000 + 10#${us:0:9}))"
   }
   _omb_profile_last=$(_omb_profile_now)
@@ -278,3 +288,7 @@ if [[ -n ${OSH_PROFILE-} ]]; then
   unset -f _omb_profile_now _omb_profile_phase
   unset -v _omb_profile_last _omb_profile_start _omb_profile_end
 fi
+
+# Restore errexit if the caller had it enabled
+[[ -n $_omb_init_errexit ]] && set -e
+unset -v _omb_init_errexit
