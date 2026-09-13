@@ -192,6 +192,19 @@ sudo pacman -S atuin aichat             # dependencias
   - fzf vía `ble-import integration/fzf-*` de blesh-contrib.
 - Con ble.sh, los bindings del fork usan `ble-bind` (`Ctrl+F` buscar, `Ctrl+T` insertar).
 
+### Atajos de teclado
+| Tecla | Acción |
+|---|---|
+| `Ctrl+F` | Buscar en archivos (ripgrep + fzf) y abrir en nvim |
+| `Ctrl+T` | Insertar ruta/archivo con fzf en la línea |
+| `C-x i` | IA: reemplaza el buffer por el comando generado |
+| `Ctrl+R` | Historia difusa (atuin) |
+| `ai <Tab>` | Banderas de `ai` |
+
+> `custom/00-tool-paths.sh` añade `~/.fzf/bin` al PATH al inicio, porque
+> `~/.fzf.bash` lo hace después de oh-my-bash y, si no, los custom de fzf
+> se saltarían.
+
 ### atuin (historia + `Ctrl+R` + sync)
 - `sudo pacman -S atuin` y `eval "$(atuin init bash)"` al final de `~/.bashrc`.
 - Usa ble.sh como backend de `preexec`; compruébalo con `atuin doctor` → `"preexec": "blesh-…"`.
