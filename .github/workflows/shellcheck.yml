@@ -16,7 +16,7 @@ jobs:
 
       - name: Install shellcheck and shfmt
         env:
-          SHELLCHECK_VERSION: v0.10.0
+          SHELLCHECK_VERSION: v0.11.0
           SHFMT_VERSION: v3.14.1
         run: |
           curl -sSL -o shellcheck.tar.xz \
@@ -32,6 +32,7 @@ jobs:
           mapfile -t custom_files < <(find custom -name '*.sh' -print)
           shellcheck -x --severity=warning \
             oh-my-bash.sh note.sh hoy.sh tardis.sh test-me.sh \
+            tools/setup-shell-extras.sh \
             "${custom_files[@]}" \
             themes/kitsune/kitsune.theme.sh
 
