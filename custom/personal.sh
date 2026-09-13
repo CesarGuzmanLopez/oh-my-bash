@@ -8,7 +8,7 @@ function take {
     echo "uso: take <directorio>" >&2
     return 2
   }
-  mkdir -p -- "$1" && builtin cd -- "$1" || return
+  command mkdir -p -- "$1" && builtin cd -- "$1" || return
 }
 alias mkcd='take'
 

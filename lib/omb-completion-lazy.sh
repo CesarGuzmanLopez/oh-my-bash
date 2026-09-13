@@ -19,8 +19,8 @@ function _omb_util_lazy_completion {
 
   eval "function $fname {
     if [[ ! -s '$cache' ]]; then
-      mkdir -p '${cache%/*}' 2> /dev/null
-      { $generator ; } > '$cache.tmp' 2> /dev/null && mv '$cache.tmp' '$cache'
+      command mkdir -p '${cache%/*}' 2> /dev/null
+      { $generator ; } >| '$cache.tmp' 2> /dev/null && command mv '$cache.tmp' '$cache'
     fi
     if [[ -s '$cache' ]]; then
       unset -f $fname

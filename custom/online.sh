@@ -41,17 +41,18 @@ function _omb_util_online_probe {
 function _omb_util_check_online_bg {
   local cache=${OSH_CACHE_DIR:-$OSH/cache}
   local retries=${OSH_ONLINE_RETRIES:-3}
-  [[ -d $cache ]] || mkdir -p "$cache" 2>/dev/null
+  command mkdir -p "$cache" 2>/dev/null
   (
     local i
     for ((i = 0; i < retries; i++)); do
       if _omb_util_online_probe; then
-        printf '1\n' >"$cache/online"
+        printf '1\n' >|"$cache/online"
         exit 0
       fi
       ((i + 1 < retries)) && sleep "$((i + 1))"
     done
-    printf '0\n' >"$cache/online"
+    printf '0\n' >|"$cache/online"
+    exit 0
   ) >/dev/null 2>&1 &
   disown 2>/dev/null || true
 }

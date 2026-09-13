@@ -31,3 +31,16 @@ setup() {
   [[ "$output" == *"_foo"* ]]
   [[ "$output" != *"_omb_lazy_completion"* ]]
 }
+
+@test "genera la caché con noclobber y un .tmp preexistente" {
+  rm -f "$CACHE"
+  printf 'stale' > "$CACHE.tmp"
+  set -o noclobber
+  _omb_util_lazy_completion foo "$CACHE" 'printf "_foo(){ COMPREPLY=(z); }\ncomplete -F _foo foo\n"'
+  COMP_WORDS=(foo)
+  COMP_CWORD=0
+  _omb_lazy_completion_foo
+  set +o noclobber
+  [ -s "$CACHE" ]
+  [ "${COMPREPLY[*]}" = z ]
+}
