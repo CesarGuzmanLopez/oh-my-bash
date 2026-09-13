@@ -46,17 +46,21 @@ __get_first_arg() {
 }
 
 insertar_texto() {
-  local cmd result point
+  local cmd result point tmp
   # Primer palabra de la línea actual (el comando en el que estamos)
   cmd="${READLINE_LINE-}"
   cmd="${cmd%% *}"
   point=${READLINE_POINT:-${#cmd}}
-  # `trap - INT QUIT`: ble.sh/readline ignoran SIGINT en los widgets; sin
-  # resetearlo, fzf hereda la señal ignorada y Ctrl+C no lo cierra.
-  result=$(
+  # Salida a fichero temporal (no `$(...)`: si un hijo retiene la tubería de
+  # la sustitución, el shell se queda esperando → "trabado"). El subshell
+  # resetea INT/QUIT para que Ctrl+C/Esc cierren fzf correctamente.
+  tmp=$(command mktemp "${TMPDIR:-/tmp}/omb-fzf.XXXXXX") || return 0
+  (
     trap - INT QUIT
     _fzf_comprun "$cmd"
-  ) || return 0
+  ) >|"$tmp"
+  result=$(command cat "$tmp" 2>/dev/null)
+  command rm -f "$tmp"
   [[ -n "$result" ]] || return 0
   # Inserta en la posición del cursor sin alterar el resto de la línea
   READLINE_LINE="${READLINE_LINE:0:point} $result ${READLINE_LINE:point}"
@@ -64,11 +68,13 @@ insertar_texto() {
 }
 
 custom_fzf_search() {
-  local selected
+  local selected tmp
+  tmp=$(command mktemp "${TMPDIR:-/tmp}/omb-fzf.XXXXXX") || return 0
   # Sin `--exit-0`: aunque no haya coincidencias, fzf se despliega igual.
-  # El subshell resetea INT/QUIT para que Ctrl+C cierre fzf correctamente.
+  # El subshell resetea INT/QUIT y la salida va a un fichero temporal para
+  # que cerrar fzf (Esc/Ctrl+C) no deje el shell esperando.
   if _omb_util_command_exists rg; then
-    selected=$(
+    (
       trap - INT QUIT
       rg --color=always --line-number --no-heading --smart-case --no-messages \
         -g '!node_modules/**' \
@@ -85,16 +91,18 @@ custom_fzf_search() {
           --preview 'bat --color=always {1} --highlight-line {2}' \
           --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
           --expect=ctrl-v
-    ) || return 0
+    ) >|"$tmp"
   else
-    selected=$(
+    (
       trap - INT QUIT
       command grep -rn --color=always --exclude-dir=.git "${*:-.}" 2>/dev/null |
         fzf --ansi --bind=esc:abort --delimiter : \
           --preview 'bat --color=always {1} --highlight-line {2}' \
           --expect=ctrl-v
-    ) || return 0
+    ) >|"$tmp"
   fi
+  selected=$(command cat "$tmp" 2>/dev/null)
+  command rm -f "$tmp"
 
   if [[ -z "$selected" ]]; then return 0; fi
 
