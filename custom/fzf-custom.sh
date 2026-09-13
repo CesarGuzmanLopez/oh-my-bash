@@ -31,12 +31,14 @@ _fzf_comprun() {
   local command=$1
   shift
   case "$command" in
-    cd) command find . -mindepth 1 -type d -not -path '*/\.git/*' | fzf --bind=esc:abort --preview 'tree -C {} -I ".git"| head -200' --height=40% ;;
+    cd) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor \) -prune -o -type d -print |
+      fzf --bind=esc:abort --preview 'tree -C {} -I ".git" | head -200' --height=40% ;;
     export | unset) fzf --bind=esc:abort --preview "eval 'echo \$'{}" --height=40% ;;
     " ") echo error ;;
-    *) command find . -mindepth 1 | fzf --bind=esc:abort --preview 'bat --style=full --color=always --line-range :500 {}' \
-      --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
-      --height=50% ;;
+    *) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor \) -prune -o -print |
+      fzf --bind=esc:abort --preview 'bat --style=plain --color=always --line-range :200 {}' \
+        --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
+        --height=50% ;;
   esac
 }
 
@@ -68,49 +70,50 @@ insertar_texto() {
 }
 
 custom_fzf_search() {
-  local selected tmp
+  local selected tmp file_path line
   tmp=$(command mktemp "${TMPDIR:-/tmp}/omb-fzf.XXXXXX") || return 0
-  # Sin `--exit-0`: aunque no haya coincidencias, fzf se despliega igual.
-  # El subshell resetea INT/QUIT y la salida va a un fichero temporal para
-  # que cerrar fzf (Esc/Ctrl+C) no deje el shell esperando.
+
+  # Live grep: fzf arranca vacío e instantáneo; rg se ejecuta al teclear
+  # (`--disabled` + `reload`), en vez de volcar TODAS las líneas al abrir.
+  local rg_cmd="rg --color=always --line-number --no-heading --smart-case --no-messages -g '!node_modules/**' -g '!.git/**' -g '!LibreChat/**' -g '!.cache/**' -g '!vendor/**' -g '!*.wt' -g '!*.bson' -g '!storage.bson'"
+  local grep_cmd="grep -rn --color=always --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.cache --exclude-dir=vendor"
+  # Preview acotado (bat tarda ~110 ms y más en archivos grandes)
+  local preview="bat --style=plain --color=always --highlight-line {2} --line-range {2}:+60 {1} 2>/dev/null"
+
   if _omb_util_command_exists rg; then
     (
       trap - INT QUIT
-      rg --color=always --line-number --no-heading --smart-case --no-messages \
-        -g '!node_modules/**' \
-        -g '!.git/**' \
-        -g '!LibreChat/**' \
-        -g '!.cache/**' \
-        -g '!vendor/**' \
-        -g '!*.wt' -g '!*.bson' -g '!storage.bson' \
-        "${*:-}" |
-        fzf --ansi \
-          --bind=esc:abort \
-          --color "hl:-1:underline,hl+:-1:underline:reverse" \
-          --delimiter : \
-          --preview 'bat --color=always {1} --highlight-line {2}' \
-          --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
-          --expect=ctrl-v
+      fzf --ansi --disabled --prompt 'rg> ' \
+        --bind "change:reload:$rg_cmd {q}" \
+        --bind=esc:abort \
+        --color "hl:-1:underline,hl+:-1:underline:reverse" \
+        --delimiter : \
+        --preview "$preview" \
+        --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
+        --expect=ctrl-v </dev/null
     ) >|"$tmp"
   else
     (
       trap - INT QUIT
-      command grep -rn --color=always --exclude-dir=.git "${*:-.}" 2>/dev/null |
-        fzf --ansi --bind=esc:abort --delimiter : \
-          --preview 'bat --color=always {1} --highlight-line {2}' \
-          --expect=ctrl-v
+      fzf --ansi --disabled --prompt 'grep> ' \
+        --bind "change:reload:$grep_cmd {q} ." \
+        --bind=esc:abort --delimiter : \
+        --preview "$preview" \
+        --expect=ctrl-v </dev/null
     ) >|"$tmp"
   fi
   selected=$(command cat "$tmp" 2>/dev/null)
   command rm -f "$tmp"
 
-  if [[ -z "$selected" ]]; then return 0; fi
+  [[ -n $selected ]] || return 0
+  # Con --expect la primera línea es la tecla (vacía con Enter)
+  local body=${selected#*$'\n'}
+  file_path=$(printf '%s\n' "$body" | command sed -n '1s/^\([^:]*\):.*/\1/p')
+  line=$(printf '%s\n' "$body" | command sed -n '1s/^[^:]*:\([0-9]*\):.*/\1/p')
 
-  local file_path
-  file_path=$(echo "$selected" | sed -n '2s/\([^:]*\):.*/\1/p')
-
-  if [[ -n "$file_path" && -f "$file_path" ]]; then
-    echo "$file_path" | xargs nvim
+  if [[ -n $file_path && -f $file_path ]]; then
+    # Abre nvim en la línea del resultado (si la hay)
+    nvim ${line:+"+$line"} -- "$file_path"
   fi
 }
 

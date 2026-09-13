@@ -195,7 +195,7 @@ sudo pacman -S atuin aichat             # dependencias
 ### Atajos de teclado
 | Tecla | Acción |
 |---|---|
-| `Ctrl+F` | Buscar en archivos (ripgrep + fzf) y abrir en nvim |
+| `Ctrl+F` | Buscar en archivos en vivo (ripgrep + fzf) y abrir nvim en la línea |
 | `Ctrl+T` | Insertar ruta/archivo con fzf en la línea |
 | `C-x i` | IA: reemplaza el buffer por el comando generado |
 | `Ctrl+R` | Historia difusa (atuin) |
