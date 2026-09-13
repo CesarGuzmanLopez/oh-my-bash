@@ -45,6 +45,7 @@ setup() {
 @test "Esc aborta fzf en vez de solo cancelar" {
   [[ "$FZF_DEFAULT_OPTS" == *"esc:abort"* ]]
   [[ "$FZF_DEFAULT_OPTS" != *"esc:cancel"* ]]
+  [[ "$FZF_DEFAULT_OPTS" == *"ctrl-c:abort"* ]]
 }
 
 @test "las llamadas a fzf fuerzan --bind=esc:abort" {

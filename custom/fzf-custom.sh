@@ -7,7 +7,7 @@ command -v fzf >/dev/null 2>&1 || return 0
 # ═══ FZF Environment ═══
 # `esc:abort` cierra fzf SIEMPRE (con `esc:cancel` primero limpia la consulta
 # y solo aborta si ya estaba vacía → parecía que "a veces no cierra").
-export FZF_DEFAULT_OPTS="--height=40% --layout=reverse --bind=esc:abort"
+export FZF_DEFAULT_OPTS="--height=40% --layout=reverse --bind=esc:abort,ctrl-c:abort"
 export FZF_DEFAULT_COMMAND="find . -type f -not -path '*/\.git/*'"
 
 # ═══ FZF Ctrl+T Preview ═══
@@ -32,11 +32,11 @@ _fzf_comprun() {
   shift
   case "$command" in
     cd) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor \) -prune -o -type d -print |
-      fzf --bind=esc:abort --preview 'tree -C {} -I ".git" | head -200' --height=40% ;;
-    export | unset) fzf --bind=esc:abort --preview "eval 'echo \$'{}" --height=40% ;;
+      fzf --bind=esc:abort,ctrl-c:abort --preview 'tree -C {} -I ".git" | head -200' --height=40% ;;
+    export | unset) fzf --bind=esc:abort,ctrl-c:abort --preview "eval 'echo \$'{}" --height=40% ;;
     " ") echo error ;;
     *) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor \) -prune -o -print |
-      fzf --bind=esc:abort --preview 'bat --style=plain --color=always --line-range :200 {}' \
+      fzf --bind=esc:abort,ctrl-c:abort --preview 'bat --style=plain --color=always --line-range :200 {}' \
         --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
         --height=50% ;;
   esac
@@ -85,7 +85,7 @@ custom_fzf_search() {
       trap - INT QUIT
       fzf --ansi --disabled --prompt 'rg> ' \
         --bind "change:reload:$rg_cmd {q}" \
-        --bind=esc:abort \
+        --bind=esc:abort,ctrl-c:abort \
         --color "hl:-1:underline,hl+:-1:underline:reverse" \
         --delimiter : \
         --preview "$preview" \
@@ -97,7 +97,7 @@ custom_fzf_search() {
       trap - INT QUIT
       fzf --ansi --disabled --prompt 'grep> ' \
         --bind "change:reload:$grep_cmd {q} ." \
-        --bind=esc:abort --delimiter : \
+        --bind=esc:abort,ctrl-c:abort --delimiter : \
         --preview "$preview" \
         --expect=ctrl-v </dev/null
     ) >|"$tmp"
