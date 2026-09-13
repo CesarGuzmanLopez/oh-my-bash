@@ -64,3 +64,29 @@ setup() {
   [ "$OSH_THEME_SCHEME_ACTIVE" = light ]
   [[ "$_FG_WHITE" == *"30;1"* ]]
 }
+
+@test "cachea los colores de kitty y los reutiliza" {
+  load_theme
+  export OSH_CACHE_DIR="$BATS_TEST_TMPDIR/cache"
+  mkdir -p "$OSH_CACHE_DIR"
+  _omb_theme_kitten_fetch() { printf 'background #0f0b16\ncolor1 #ff6b81\n'; }
+  run _omb_theme_kitten_colors
+  [[ "$output" == *"background #0f0b16"* ]]
+  [ -s "$OSH_CACHE_DIR/kitty-colors" ]
+
+  # Aunque el fetch falle, la caché se sigue sirviendo
+  _omb_theme_kitten_fetch() { return 1; }
+  run _omb_theme_kitten_colors
+  [[ "$output" == *"background #0f0b16"* ]]
+}
+
+@test "KDE activo manda sobre kitty (cambio de tema KDE)" {
+  load_theme
+  _omb_theme_in_kitty() { return 0; }
+  _omb_theme_kitten_colors() { printf 'background #0f0b16\n'; }
+  _omb_theme_kde_active() { return 0; }
+  _omb_theme_kde_scheme() { printf 'light\n'; }
+  _omb_theme_load_colors
+  [ "$OSH_THEME_SCHEME_ACTIVE" = light ]
+  [[ "$_FG_WHITE" == *"30;1"* ]]
+}

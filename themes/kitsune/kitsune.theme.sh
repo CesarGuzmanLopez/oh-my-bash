@@ -41,8 +41,33 @@ function _omb_theme_run_timeout {
 }
 
 # `kitten @ get-colors` with a timeout so it can never hang a remote shell
-function _omb_theme_kitten_colors {
+function _omb_theme_kitten_fetch {
   _omb_theme_run_timeout 0.5 kitten @ get-colors
+}
+
+# Cached kitty palette: read the cache (no subprocess on the prompt path) and
+# refresh it in the background; fetch once when there is no cache yet.
+# `refreshcolor` removes the cache to force a fresh fetch.
+# NOTE: `>|` and `command` are required because oh-my-bash sets `noclobber`
+# and defines aliases for mkdir/mv/cat.
+function _omb_theme_kitten_colors {
+  local cache=${OSH_CACHE_DIR:-$OSH/cache}/kitty-colors
+  if [[ -s $cache ]]; then
+    command cat "$cache"
+    (
+      _omb_theme_kitten_fetch >|"$cache.tmp" 2>/dev/null &&
+        command mv "$cache.tmp" "$cache"
+    ) >/dev/null 2>&1 &
+    disown 2>/dev/null || true
+  else
+    local colors
+    colors=$(_omb_theme_kitten_fetch)
+    if [[ -n $colors ]]; then
+      command mkdir -p "${cache%/*}" 2>/dev/null
+      printf '%s\n' "$colors" >|"$cache"
+    fi
+    printf '%s\n' "$colors"
+  fi
 }
 
 # Is a KDE/Plasma session actually active? (kdeglobals may exist even
@@ -98,6 +123,29 @@ function _omb_theme_luminance {
   if ((lum < 128)); then printf 'dark\n'; else printf 'light\n'; fi
 }
 
+# Scheme from KDE Plasma (dark|light). Returns non-zero if unavailable.
+function _omb_theme_kde_scheme {
+  local kread=kreadconfig6
+  _omb_util_command_exists "$kread" || kread=kreadconfig5
+  _omb_util_command_exists "$kread" || return 1
+  local cs
+  cs=$(_omb_theme_run_timeout 0.5 "$kread" --file kdeglobals --group General --key ColorScheme)
+  case $cs in
+    *[Dd]ark*)
+      printf 'dark\n'
+      return 0
+      ;;
+    *[Ll]ight*)
+      printf 'light\n'
+      return 0
+      ;;
+  esac
+  local bg
+  bg=$(_omb_theme_run_timeout 0.5 "$kread" --file kdeglobals --group Colors:Window --key BackgroundNormal)
+  [[ -n $bg ]] && _omb_theme_luminance "$bg" && return 0
+  return 1
+}
+
 # Print the active scheme: dark | light | ansi
 function _omb_theme_detect_scheme {
   # 1) Explicit override
@@ -108,14 +156,7 @@ function _omb_theme_detect_scheme {
       ;;
   esac
 
-  # 2) kitty live colors
-  if _omb_theme_in_kitty; then
-    local bg
-    bg=$(_omb_theme_kitten_colors | awk '$1 == "background" { print $2; exit }')
-    [[ -n $bg ]] && _omb_theme_luminance "$bg" && return
-  fi
-
-  # 3) Remote session without kitty: the local desktop palette does not
+  # 2) Remote session without kitty: the local desktop palette does not
   #    describe the client terminal (Windows/macOS/other), so just use the
   #    terminal's own colors.
   if [[ -n ${SSH_CLIENT-}${SSH_CONNECTION-}${SSH_TTY-} ]]; then
@@ -123,27 +164,17 @@ function _omb_theme_detect_scheme {
     return
   fi
 
-  # 4) KDE Plasma — only when a Plasma session is actually active
+  # 3) KDE Plasma — authoritative when a Plasma session is active, so a KDE
+  #    theme change is reflected immediately (before the kitty palette).
   if _omb_theme_kde_active; then
-    local kread=kreadconfig6
-    _omb_util_command_exists "$kread" || kread=kreadconfig5
-    if _omb_util_command_exists "$kread"; then
-      local cs
-      cs=$(_omb_theme_run_timeout 0.5 "$kread" --file kdeglobals --group General --key ColorScheme)
-      case $cs in
-        *[Dd]ark*)
-          printf 'dark\n'
-          return
-          ;;
-        *[Ll]ight*)
-          printf 'light\n'
-          return
-          ;;
-      esac
-      local bg
-      bg=$(_omb_theme_run_timeout 0.5 "$kread" --file kdeglobals --group Colors:Window --key BackgroundNormal)
-      [[ -n $bg ]] && _omb_theme_luminance "$bg" && return
-    fi
+    _omb_theme_kde_scheme && return
+  fi
+
+  # 4) kitty live colors
+  if _omb_theme_in_kitty; then
+    local bg
+    bg=$(_omb_theme_kitten_colors | awk '$1 == "background" { print $2; exit }')
+    [[ -n $bg ]] && _omb_theme_luminance "$bg" && return
   fi
 
   # 5) GNOME / freedesktop portal preference (only with a real GNOME session)
@@ -226,6 +257,12 @@ function _omb_theme_load_colors {
     dark | light | ansi) scheme=$OSH_THEME_SCHEME ;;
   esac
 
+  # KDE is authoritative when a Plasma session is active, so a KDE theme
+  # change is reflected even if kitty's palette lags behind.
+  if [[ -z $scheme ]] && _omb_theme_kde_active; then
+    scheme=$(_omb_theme_kde_scheme)
+  fi
+
   # Otherwise derive the scheme from the live kitty background; if that is
   # not possible, fall back to the full detection.
   if [[ -z $scheme && -n $kitty_colors ]]; then
@@ -268,8 +305,8 @@ function _omb_theme_load_colors {
     [[ -f $conf ]] || continue
     for ((i = 1; i <= 6; i++)); do
       if [[ -z ${hex_src[$((i - 1))]} ]]; then
-        hex_src[$((i - 1))]=$(grep -m1 -E "^color${i}[[:space:]]" "$conf" 2>/dev/null |
-          grep -oE '#[0-9a-fA-F]{6}' | tail -1)
+        hex_src[$((i - 1))]=$(command grep -m1 -E "^color${i}[[:space:]]" "$conf" 2>/dev/null |
+          command grep -oE '#[0-9a-fA-F]{6}' | tail -1)
       fi
     done
     [[ -n ${hex_src[5]} ]] && break
@@ -383,12 +420,15 @@ function _omb_theme_scm_refresh {
   [[ ${OSH_PROMPT_ASYNC_GIT:-0} == 1 ]] || return 0
   [[ -n $_omb_theme_scm_async_dir ]] ||
     _omb_theme_scm_async_dir=${TMPDIR:-/tmp}/omb-prompt-$$
-  [[ -d $_omb_theme_scm_async_dir ]] || mkdir -p "$_omb_theme_scm_async_dir" 2>/dev/null
+  [[ -d $_omb_theme_scm_async_dir ]] || command mkdir -p "$_omb_theme_scm_async_dir" 2>/dev/null
   local key f
   key=$(printf '%s' "$PWD" | cksum | awk '{print $1}')
   f="$_omb_theme_scm_async_dir/$key"
   if [[ -z $_omb_theme_scm_async_pid ]] || ! kill -0 "$_omb_theme_scm_async_pid" 2>/dev/null; then
-    (scm_prompt_info >"$f.tmp" 2>/dev/null && mv "$f.tmp" "$f") >/dev/null 2>&1 &
+    (
+      scm_prompt_info >|"$f.tmp" 2>/dev/null && command mv "$f.tmp" "$f"
+      exit 0
+    ) >/dev/null 2>&1 &
     _omb_theme_scm_async_pid=$!
   fi
 }
@@ -400,7 +440,7 @@ function _omb_theme_scm_prompt_info {
     local key f
     key=$(printf '%s' "$PWD" | cksum | awk '{print $1}')
     f="$_omb_theme_scm_async_dir/$key"
-    [[ -r $f ]] && cat "$f"
+    [[ -r $f ]] && command cat "$f"
   else
     scm_prompt_info 2>/dev/null
   fi
@@ -489,9 +529,13 @@ function _omb_theme_scheme_watch {
       local s
       s=$(_omb_theme_detect_scheme 2>/dev/null)
       if [[ -n $s ]]; then
-        mkdir -p "${cache%/*}" 2>/dev/null
-        printf '%s\n' "$s" >"$cache.tmp" && mv "$cache.tmp" "$cache"
+        command mkdir -p "${cache%/*}" 2>/dev/null
+        # `>|` overrides noclobber (oh-my-bash enables it)
+        if printf '%s\n' "$s" >|"$cache.tmp" 2>/dev/null; then
+          command mv "$cache.tmp" "$cache" 2>/dev/null
+        fi
       fi
+      exit 0
     ) >/dev/null 2>&1 &
     _omb_theme_scheme_bg_pid=$!
   fi
@@ -503,6 +547,8 @@ _omb_util_add_prompt_command _omb_theme_PROMPT_COMMAND
 # Manual reload (used by `refreshcolor` and to apply a change immediately)
 function _omb_theme_reload_colors {
   _omb_theme_scheme_checked=$SECONDS
+  # Force a fresh kitty palette on explicit refresh
+  command rm -f "${OSH_CACHE_DIR:-$OSH/cache}/kitty-colors"
   _omb_theme_load_colors
   _omb_theme_PROMPT_COMMAND
 }
