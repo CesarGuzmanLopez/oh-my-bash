@@ -80,17 +80,15 @@ EOF
 }
 
 # Widget: reemplaza el buffer de edición por el comando generado.
+# Con ble.sh basta con asignar READLINE_LINE/READLINE_POINT: ble.sh
+# sincroniza la línea al volver del widget (así lo hace atuin).
 function ai-insert {
   local desc=${READLINE_LINE-} cmd
   [[ -n $desc ]] || return 0
   cmd=$(_osh_ai_command "$desc") || return 1
   cmd=${cmd%$'\n'}
-  if [[ -n ${BLE_VERSION-} ]]; then
-    ble-edit/content/reset-and-check-dirty "$cmd"
-  else
-    READLINE_LINE=$cmd
-    READLINE_POINT=${#cmd}
-  fi
+  READLINE_LINE=$cmd
+  READLINE_POINT=${#cmd}
 }
 
 # Keybinding C-x i (ble.sh o readline)
