@@ -62,14 +62,14 @@ Variables:
 
 ```bash
 OSH_THEME_SCHEME=auto          # auto (por defecto) | dark | light | ansi
-OSH_THEME_SCHEME_INTERVAL=10   # segundos entre re-detecciones (solo si hay fuente dinámica)
+OSH_THEME_SCHEME_INTERVAL=3    # segundos entre re-detecciones (solo si hay fuente dinámica; 0 desactiva)
 ```
 
-Para forzar y recargar sin reabrir el shell:
+El tema se **re-evalúa en cada prompt** (con ese intervalo). Al cambiar el tema del SO/kitty, el **siguiente prompt ya sale con los colores nuevos** (no hace falta reiniciar bash). Los prompts ya dibujados no cambian. Para aplicarlo al instante:
 
 ```bash
+refreshcolor              # recarga kitty (si existe) + re-aplica el tema ahora
 OSH_THEME_SCHEME=light _omb_theme_reload_colors
-refreshcolor              # recarga kitty (si existe) + re-aplica el tema
 ```
 
 ### SSH desde kitty — `'xterm-kitty': unknown terminal type`

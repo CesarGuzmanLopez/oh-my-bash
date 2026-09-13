@@ -301,26 +301,24 @@ SCM_THEME_PROMPT_CLEAN=" ✓"
 SCM_THEME_PROMPT_PREFIX=""
 SCM_THEME_PROMPT_SUFFIX=""
 
-_omb_util_add_prompt_command _omb_theme_PROMPT_COMMAND
-
 # ═══════════════════════════════════════════════════════════════
 #  React to scheme changes at runtime
 # ═══════════════════════════════════════════════════════════════
-# Only runs when there is a source that can actually change (kitty / KDE /
-# GNOME). In a plain SSH session it stays in `ansi` mode and the watcher is
-# a no-op, so there is no overhead.
+# Registered BEFORE the prompt builder: when the scheme changes, the very
+# next prompt is already drawn with the new color family. Only runs when a
+# source can actually change (kitty / KDE / GNOME) and when the scheme was
+# not forced. In a plain SSH session it stays `ansi` and polls nothing.
 
 _omb_theme_scheme_checked=0
 
-function _omb_theme_reload_colors {
-  _omb_theme_scheme_checked=$SECONDS
-  _omb_theme_load_colors
-  _omb_theme_PROMPT_COMMAND
-}
-
 function _omb_theme_scheme_watch {
+  # A forced scheme never changes on its own
+  case ${OSH_THEME_SCHEME:-auto} in
+    dark | light | ansi) return 0 ;;
+  esac
   _omb_theme_has_dynamic_source || return 0
-  local interval=${OSH_THEME_SCHEME_INTERVAL:-10}
+  local interval=${OSH_THEME_SCHEME_INTERVAL:-3}
+  (( interval > 0 )) || return 0
   (( SECONDS - _omb_theme_scheme_checked < interval )) && return
   _omb_theme_scheme_checked=$SECONDS
   local scheme
@@ -330,3 +328,11 @@ function _omb_theme_scheme_watch {
 }
 
 _omb_util_add_prompt_command _omb_theme_scheme_watch
+_omb_util_add_prompt_command _omb_theme_PROMPT_COMMAND
+
+# Manual reload (used by `refreshcolor` and to apply a change immediately)
+function _omb_theme_reload_colors {
+  _omb_theme_scheme_checked=$SECONDS
+  _omb_theme_load_colors
+  _omb_theme_PROMPT_COMMAND
+}
