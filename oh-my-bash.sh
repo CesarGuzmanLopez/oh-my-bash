@@ -34,7 +34,41 @@ _omb_version=$((OMB_VERSINFO[0] * 10000 + OMB_VERSINFO[1] * 100 + OMB_VERSINFO[2
 
 # ── Load .env secrets (tokens, API keys) — only if present ──
 # Create a .env file in the OSH root with your personal tokens.
-[[ -f $OSH/.env ]] && source "$OSH/.env"
+if [[ -f $OSH/.env ]]; then
+  source "$OSH/.env"
+  # Best-effort: keep the secrets file private (600)
+  if [[ -O $OSH/.env ]]; then
+    case $(uname) in
+      Darwin) _omb_env_perm=$(stat -f '%Lp' "$OSH/.env" 2> /dev/null) ;;
+      *)      _omb_env_perm=$(stat -c '%a' "$OSH/.env" 2> /dev/null) ;;
+    esac
+    [[ -n $_omb_env_perm && $_omb_env_perm != 600 ]] && chmod 600 "$OSH/.env" 2> /dev/null
+    unset -v _omb_env_perm
+  fi
+fi
+
+# ── Optional startup profiling: OSH_PROFILE=1 ──
+if [[ -n ${OSH_PROFILE-} ]]; then
+  _omb_profile_now() {
+    local n
+    n=$(date +%s%N 2> /dev/null)
+    if [[ $n =~ ^[0-9]+$ ]]; then
+      printf '%s' "$n"
+      return
+    fi
+    # Fallback: EPOCHREALTIME (bash >= 5) seconds.microseconds -> nanoseconds
+    local t=${EPOCHREALTIME:-0} s=${t%.*} us=${t#*.}000000
+    printf '%s' "$((s * 1000000000 + 10#${us:0:9}))"
+  }
+  _omb_profile_last=$(_omb_profile_now)
+  _omb_profile_phase() {
+    local now
+    now=$(_omb_profile_now)
+    printf 'omb-profile: %-12s %4d ms\n' "${1:-}" "$(((now - _omb_profile_last) / 1000000))"
+    _omb_profile_last=$now
+  }
+  _omb_profile_start=$_omb_profile_last
+fi
 
 # ── Default: disable auto-update for this fork ──
 # The upstream check_for_upgrade would try to git-pull from ohmybash/oh-my-bash,
@@ -134,6 +168,7 @@ _omb_init_files=("${_omb_init_files[@]%.bash}")
 _omb_init_files=("${_omb_init_files[@]%.sh}")
 _omb_module_require_lib "${_omb_init_files[@]}"
 unset -v _omb_init_files
+[[ -n ${OSH_PROFILE-} ]] && _omb_profile_phase libs
 
 # Figure out the SHORT hostname
 if [[ $OSTYPE = darwin* ]]; then
@@ -180,14 +215,23 @@ if [[ ${#completions[@]} -eq 0 ]]; then
   )
 fi
 
+# zoxide (salto inteligente de directorios) si está instalado.
+# Desactívalo con OSH_ENABLE_ZOXIDE=0
+if [[ ${OSH_ENABLE_ZOXIDE:-1} == 1 ]] && _omb_util_command_exists zoxide; then
+  plugins+=(zoxide)
+fi
+
 # Load all of the plugins that were defined in ~/.bashrc
 _omb_module_require_plugin "${plugins[@]}"
+[[ -n ${OSH_PROFILE-} ]] && _omb_profile_phase plugins
 
 # Load all of the aliases that were defined in ~/.bashrc
 _omb_module_require_alias "${aliases[@]}"
+[[ -n ${OSH_PROFILE-} ]] && _omb_profile_phase aliases
 
 # Load all of the completions that were defined in ~/.bashrc
 _omb_module_require_completion "${completions[@]}"
+[[ -n ${OSH_PROFILE-} ]] && _omb_profile_phase completions
 
 # Load all of your custom configurations from custom/
 _omb_util_glob_expand _omb_init_files '"$OSH_CUSTOM"/*.{sh,bash}'
@@ -196,6 +240,7 @@ for _omb_init_file in "${_omb_init_files[@]}"; do
     source "$_omb_init_file"
 done
 unset -v _omb_init_files _omb_init_file
+[[ -n ${OSH_PROFILE-} ]] && _omb_profile_phase custom
 
 # ── Default theme ──
 # Use "kitsune" as the default theme if the user hasn't set OSH_THEME.
@@ -207,6 +252,7 @@ OSH_THEME=${OSH_THEME:-kitsune}
 if [[ $OSH_THEME ]]; then
   _omb_module_require_theme "$OSH_THEME"
 fi
+[[ -n ${OSH_PROFILE-} ]] && _omb_profile_phase theme
 
 if [[ $PROMPT ]]; then
   export PS1='\['$PROMPT'\]'
@@ -223,4 +269,12 @@ elif [[ -s /Applications/Preview.app ]]; then
   PREVIEW="/Applications/Preview.app"
 else
   PREVIEW="less"
+fi
+
+# ── Optional startup profiling: final report ──
+if [[ -n ${OSH_PROFILE-} ]]; then
+  _omb_profile_end=$(_omb_profile_now)
+  printf 'omb-profile: %-12s %4d ms\n' total "$(((_omb_profile_end - _omb_profile_start) / 1000000))"
+  unset -f _omb_profile_now _omb_profile_phase
+  unset -v _omb_profile_last _omb_profile_start _omb_profile_end
 fi
