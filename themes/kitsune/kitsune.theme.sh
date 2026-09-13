@@ -45,29 +45,10 @@ function _omb_theme_kitten_fetch {
   _omb_theme_run_timeout 0.5 kitten @ get-colors
 }
 
-# Cached kitty palette: read the cache (no subprocess on the prompt path) and
-# refresh it in the background; fetch once when there is no cache yet.
-# `refreshcolor` removes the cache to force a fresh fetch.
-# NOTE: `>|` and `command` are required because oh-my-bash sets `noclobber`
-# and defines aliases for mkdir/mv/cat.
+# Live kitty palette (with timeout). No cache: a cached value would hide
+# theme changes (kitty or KDE-following kitty) from the watcher.
 function _omb_theme_kitten_colors {
-  local cache=${OSH_CACHE_DIR:-$OSH/cache}/kitty-colors
-  if [[ -s $cache ]]; then
-    command cat "$cache"
-    # Nested subshell: bash prints no job-control notice for the refresh.
-    ( (
-      _omb_theme_kitten_fetch >|"$cache.tmp" 2>/dev/null &&
-        command mv "$cache.tmp" "$cache"
-    ) >/dev/null 2>&1 &)
-  else
-    local colors
-    colors=$(_omb_theme_kitten_fetch)
-    if [[ -n $colors ]]; then
-      command mkdir -p "${cache%/*}" 2>/dev/null
-      printf '%s\n' "$colors" >|"$cache"
-    fi
-    printf '%s\n' "$colors"
-  fi
+  _omb_theme_kitten_fetch
 }
 
 # Is a KDE/Plasma session actually active? (kdeglobals may exist even
@@ -164,17 +145,17 @@ function _omb_theme_detect_scheme {
     return
   fi
 
-  # 3) KDE Plasma — authoritative when a Plasma session is active, so a KDE
-  #    theme change is reflected immediately (before the kitty palette).
-  if _omb_theme_kde_active; then
-    _omb_theme_kde_scheme && return
-  fi
-
-  # 4) kitty live colors
+  # 3) kitty live colors: the prompt is drawn in the terminal, so its palette
+  #    wins (kitty also follows KDE when configured to do so).
   if _omb_theme_in_kitty; then
     local bg
     bg=$(_omb_theme_kitten_colors | awk '$1 == "background" { print $2; exit }')
     [[ -n $bg ]] && _omb_theme_luminance "$bg" && return
+  fi
+
+  # 4) KDE Plasma (fallback when not in kitty)
+  if _omb_theme_kde_active; then
+    _omb_theme_kde_scheme && return
   fi
 
   # 5) GNOME / freedesktop portal preference (only with a real GNOME session)
@@ -257,18 +238,17 @@ function _omb_theme_load_colors {
     dark | light | ansi) scheme=$OSH_THEME_SCHEME ;;
   esac
 
-  # KDE is authoritative when a Plasma session is active, so a KDE theme
-  # change is reflected even if kitty's palette lags behind.
-  if [[ -z $scheme ]] && _omb_theme_kde_active; then
-    scheme=$(_omb_theme_kde_scheme)
-  fi
-
-  # Otherwise derive the scheme from the live kitty background; if that is
-  # not possible, fall back to the full detection.
+  # The prompt is drawn inside kitty, so its live background decides the
+  # scheme (this also reflects a KDE change when kitty follows KDE).
   if [[ -z $scheme && -n $kitty_colors ]]; then
     local bg
     bg=$(printf '%s\n' "$kitty_colors" | awk '$1 == "background" { print $2; exit }')
     [[ -n $bg ]] && scheme=$(_omb_theme_luminance "$bg")
+  fi
+
+  # Fallback: KDE, then the full detection.
+  if [[ -z $scheme ]] && _omb_theme_kde_active; then
+    scheme=$(_omb_theme_kde_scheme)
   fi
   scheme=${scheme:-$(_omb_theme_detect_scheme)}
   OSH_THEME_SCHEME_ACTIVE=$scheme
@@ -545,8 +525,6 @@ _omb_util_add_prompt_command _omb_theme_PROMPT_COMMAND
 # Manual reload (used by `refreshcolor` and to apply a change immediately)
 function _omb_theme_reload_colors {
   _omb_theme_scheme_checked=$SECONDS
-  # Force a fresh kitty palette on explicit refresh
-  command rm -f "${OSH_CACHE_DIR:-$OSH/cache}/kitty-colors"
   _omb_theme_load_colors
   _omb_theme_PROMPT_COMMAND
 }
