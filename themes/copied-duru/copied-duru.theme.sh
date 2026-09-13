@@ -22,7 +22,7 @@ function _omb_theme_PROMPT_COMMAND {
 
   local git_prefix=
   [[ $(_omb_prompt_git branch 2> /dev/null) ]] && git_prefix=' on '
-  
+
   PS1=$GREEN'#'$python_venv' '$PURPLE'\u@'$WHITE'\h'$GREEN
   PS1+=' '$current_time'>'$RESET
   PS1+=' '$PURPLE'<\w'$WHITE$git_prefix$MAGENTA$(parse_git_branch)
