@@ -28,8 +28,8 @@ alias ssh-kitty='kitty +kitten ssh'
 
 # ¿Tenemos la terminfo de xterm-kitty en local?
 function kitty-term-info {
-  if infocmp xterm-kitty > /dev/null 2>&1; then
-    echo "✅ terminfo xterm-kitty disponible: $(infocmp -D xterm-kitty 2> /dev/null | head -1)"
+  if infocmp xterm-kitty >/dev/null 2>&1; then
+    echo "✅ terminfo xterm-kitty disponible: $(infocmp -D xterm-kitty 2>/dev/null | head -1)"
   else
     echo "❌ Falta la terminfo xterm-kitty."
     echo "   Arch:            sudo pacman -S kitty-terminfo"
@@ -41,10 +41,13 @@ function kitty-term-info {
 # Instala xterm-kitty system-wide en el host remoto (arregla root/su/sudo).
 function ssh-term-fix {
   local host=${1:?uso: ssh-term-fix usuario@host}
-  _omb_util_command_exists infocmp || { echo "Falta 'infocmp' (paquete ncurses)." >&2; return 1; }
+  _omb_util_command_exists infocmp || {
+    echo "Falta 'infocmp' (paquete ncurses)." >&2
+    return 1
+  }
   echo "→ Instalando terminfo xterm-kitty en $host (se pedirá sudo allí)..."
   local remote_cmd="command -v tic >/dev/null || { echo 'Falta tic (ncurses-bin)'; exit 1; }; sudo sh -c 'mkdir -p /usr/share/terminfo && tic -x -o /usr/share/terminfo -' && echo INSTALADO"
-  if infocmp -x xterm-kitty 2> /dev/null | command ssh -t "$host" "$remote_cmd"; then
+  if infocmp -x xterm-kitty 2>/dev/null | command ssh -t "$host" "$remote_cmd"; then
     echo "✅ Listo. root/su/sudo ya reconocen xterm-kitty en $host."
   else
     echo "⚠️  No se pudo instalar. Alternativa: ssh-term-safe $host" >&2

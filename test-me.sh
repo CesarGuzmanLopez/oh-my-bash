@@ -7,7 +7,8 @@
 # ============================================================
 
 # OSH se auto-detecta en oh-my-bash.sh, pero forzamos la ruta por claridad
-export OSH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+OSH="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+export OSH
 
 # Configuración de oh-my-bash
 OSH_THEME="kitsune"

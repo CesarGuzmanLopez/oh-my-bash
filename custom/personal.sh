@@ -4,7 +4,10 @@
 
 # take: crea un directorio y entra en él (mkcd)
 function take {
-  [[ -n ${1-} ]] || { echo "uso: take <directorio>" >&2; return 2; }
+  [[ -n ${1-} ]] || {
+    echo "uso: take <directorio>" >&2
+    return 2
+  }
   mkdir -p -- "$1" && builtin cd -- "$1" || return
 }
 alias mkcd='take'
@@ -12,24 +15,30 @@ alias mkcd='take'
 # extract: descomprime casi cualquier formato
 function extract {
   local f=${1-}
-  [[ -n $f ]] || { echo "uso: extract <archivo>" >&2; return 2; }
-  [[ -f $f ]] || { echo "extract: no existe '$f'" >&2; return 1; }
+  [[ -n $f ]] || {
+    echo "uso: extract <archivo>" >&2
+    return 2
+  }
+  [[ -f $f ]] || {
+    echo "extract: no existe '$f'" >&2
+    return 1
+  }
 
   case $f in
     *.tar.bz2 | *.tbz2) tar xjf "$f" ;;
-    *.tar.gz | *.tgz)   tar xzf "$f" ;;
-    *.tar.xz | *.txz)   tar xJf "$f" ;;
-    *.tar.zst)          tar --zstd -xf "$f" ;;
-    *.tar)              tar xf "$f" ;;
-    *.bz2)              _omb_util_command_exists bunzip2 && bunzip2 "$f" ;;
-    *.gz)               _omb_util_command_exists gunzip && gunzip "$f" ;;
-    *.xz)               _omb_util_command_exists unxz && unxz "$f" ;;
-    *.zst)              _omb_util_command_exists unzstd && unzstd "$f" ;;
-    *.zip)              _omb_util_command_exists unzip && unzip "$f" ;;
-    *.7z)               _omb_util_command_exists 7z && 7z x "$f" ;;
-    *.rar)              _omb_util_command_exists unrar && unrar x "$f" ;;
-    *.deb)              _omb_util_command_exists ar && ar x "$f" ;;
-    *.rpm)              _omb_util_command_exists rpm2cpio && rpm2cpio "$f" | cpio -idmv ;;
+    *.tar.gz | *.tgz) tar xzf "$f" ;;
+    *.tar.xz | *.txz) tar xJf "$f" ;;
+    *.tar.zst) tar --zstd -xf "$f" ;;
+    *.tar) tar xf "$f" ;;
+    *.bz2) _omb_util_command_exists bunzip2 && bunzip2 "$f" ;;
+    *.gz) _omb_util_command_exists gunzip && gunzip "$f" ;;
+    *.xz) _omb_util_command_exists unxz && unxz "$f" ;;
+    *.zst) _omb_util_command_exists unzstd && unzstd "$f" ;;
+    *.zip) _omb_util_command_exists unzip && unzip "$f" ;;
+    *.7z) _omb_util_command_exists 7z && 7z x "$f" ;;
+    *.rar) _omb_util_command_exists unrar && unrar x "$f" ;;
+    *.deb) _omb_util_command_exists ar && ar x "$f" ;;
+    *.rpm) _omb_util_command_exists rpm2cpio && rpm2cpio "$f" | cpio -idmv ;;
     *)
       echo "extract: formato no soportado: $f" >&2
       return 1
@@ -77,7 +86,7 @@ function updateAll {
   _omb_util_command_exists flatpak && { flatpak uninstall --unused -y || return; }
   echo "🧹 Limpiando paquetes huérfanos..."
   if _omb_util_command_exists pacman; then
-    pacman -Qdtq 2> /dev/null | xargs -r sudo pacman -Rns --noconfirm
+    pacman -Qdtq 2>/dev/null | xargs -r sudo pacman -Rns --noconfirm
   fi
   echo "✅ Todo actualizado y limpio"
 }

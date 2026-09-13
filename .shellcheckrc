@@ -1,1 +1,5 @@
 disable=SC1087 # Use braces when expanding arrays -- needed for Zsh, not Bash
+disable=SC1090 # Non-constant source: OMB loads modules dynamically
+disable=SC2034 # Variables consumed by other OMB modules or exported indirectly
+disable=SC2239 # OMB module files use '#! bash oh-my-bash.module' by convention
+disable=SC2016 # Single quotes are intentional for patterns / deferred expansion
