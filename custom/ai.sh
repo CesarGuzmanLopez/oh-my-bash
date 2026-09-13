@@ -6,9 +6,17 @@
 #   ai -x "descripción"   Genera y ejecuta (pide confirmación)
 #   ai -e [comando]       Explica un comando (o el último)
 #   ai -m "pregunta"      Chat normal con el modelo
+#   ai <Tab>              Completa las banderas disponibles
 #   C-x i                 Reemplaza el buffer por el comando generado
 #
 # El modelo se puede cambiar con OSH_AI_MODEL (por defecto Groq gpt-oss-20b).
+#
+# Degradación elegante: si `aichat` no está instalado, `ai` simplemente no
+# aparece y este archivo no produce ningún error.
+
+if ! command -v aichat >/dev/null 2>&1; then
+  return 0
+fi
 
 OSH_AI_MODEL=${OSH_AI_MODEL:-groq:openai/gpt-oss-20b}
 OSH_AI_SYSTEM=${OSH_AI_SYSTEM:-'Eres un experto en bash en Linux. Devuelve UNICAMENTE un comando de shell valido en una sola linea, sin explicaciones ni bloques de codigo.'}
@@ -45,6 +53,7 @@ ai "descripción"      Genera un comando de shell (no lo ejecuta)
 ai -x "descripción"   Genera y ejecuta (con confirmación)
 ai -e [comando]       Explica un comando (o el último)
 ai -m "pregunta"      Chat normal con el modelo
+ai <Tab>              Completa las banderas
 EOF
       return 0
       ;;
@@ -97,3 +106,19 @@ if [[ -n ${BLE_VERSION-} ]]; then
 elif [[ -t 0 ]]; then
   bind -x '"\C-x i": ai-insert'
 fi
+
+# ── Completado de banderas: `ai <Tab>` ──
+# Sin argumento o empezando por '-', ofrece las banderas; con una descripción
+# normal no interfiere.
+function _osh_ai_completion {
+  local cur=${COMP_WORDS[COMP_CWORD]}
+  if [[ -n $cur && $cur != -* ]]; then
+    COMPREPLY=()
+    return 0
+  fi
+  local opts='-x -e -m -h --execute --explain --message --help'
+  local IFS=$' \t\n'
+  # shellcheck disable=SC2207  # división intencional de las banderas
+  COMPREPLY=($(compgen -W "$opts" -- "$cur"))
+}
+complete -F _osh_ai_completion ai

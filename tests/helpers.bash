@@ -18,8 +18,15 @@ load_personal() {
   source "$BATS_TEST_DIRNAME/../custom/personal.sh"
 }
 
-# Carga el helper de IA (custom/ai.sh) aislado
+# Carga el helper de IA (custom/ai.sh) aislado.
+# custom/ai.sh solo define `ai` si existe `aichat`, así que creamos un stub.
 load_ai() {
+  mkdir -p "$BATS_TEST_TMPDIR/bin"
+  if [[ ! -x $BATS_TEST_TMPDIR/bin/aichat ]]; then
+    printf '%s\n' '#!/usr/bin/env bash' 'exit 0' > "$BATS_TEST_TMPDIR/bin/aichat"
+    chmod +x "$BATS_TEST_TMPDIR/bin/aichat"
+  fi
+  PATH="$BATS_TEST_TMPDIR/bin:$PATH"
   _omb_util_command_exists() { command -v "$1" > /dev/null 2>&1; }
   # shellcheck source=/dev/null
   source "$BATS_TEST_DIRNAME/../custom/ai.sh"

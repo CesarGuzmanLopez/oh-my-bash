@@ -1,6 +1,9 @@
 #!/bin/bash
 # Custom FZF configuration — migrated from .bash_vim
 
+# Degradación elegante: sin fzf, este archivo no hace nada (ni da error).
+command -v fzf >/dev/null 2>&1 || return 0
+
 # ═══ FZF Environment ═══
 export FZF_DEFAULT_OPTS="--height=40% --layout=reverse --bind=esc:cancel"
 export FZF_DEFAULT_COMMAND="find . -type f -not -path '*/\.git/*'"

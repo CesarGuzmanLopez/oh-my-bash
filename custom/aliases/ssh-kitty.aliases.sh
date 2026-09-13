@@ -24,7 +24,10 @@ if [[ -n ${KITTY_PID-} || ${TERM-} == xterm-kitty ]] && _omb_util_command_exists
 fi
 
 # Integración completa (TERM=xterm-kitty). Para root/su usa `ssh-term-fix`.
-alias ssh-kitty='kitty +kitten ssh'
+# Solo si kitty está instalado (si no, el alias no aparece y no da error).
+if _omb_util_command_exists kitty; then
+  alias ssh-kitty='kitty +kitten ssh'
+fi
 
 # ¿Tenemos la terminfo de xterm-kitty en local?
 function kitty-term-info {
