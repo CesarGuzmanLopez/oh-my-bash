@@ -10,6 +10,36 @@ SHOW_WIND=false
 SHOW_PRESSURE=false
 SHOW_VISIBILITY=false
 
+# ── Dependencias ──
+for _dep in curl jq; do
+    command -v "$_dep" > /dev/null 2>&1 || { echo "hoy: falta '$_dep'." >&2; exit 1; }
+done
+
+# ── Caché de respuestas de API (10 min por defecto) ──
+HOY_CACHE_TTL=${HOY_CACHE_TTL:-600}
+_hoy_cache_dir=${XDG_CACHE_HOME:-$HOME/.cache}/hoy
+mkdir -p "$_hoy_cache_dir"
+_hoy_mtime() {
+    case $(uname) in
+        Darwin) stat -f '%m' "$1" 2> /dev/null ;;
+        *) stat -c '%Y' "$1" 2> /dev/null ;;
+    esac
+}
+_hoy_fetch() { # nombre url
+    local f="$_hoy_cache_dir/$1.json" now data m
+    now=$(date +%s)
+    if [[ -s $f ]]; then
+        m=$(_hoy_mtime "$f")
+        if [[ -n $m ]] && (( now - m < HOY_CACHE_TTL )); then
+            cat "$f"
+            return
+        fi
+    fi
+    data=$(curl -s --max-time 10 "$2")
+    [[ -n $data ]] && printf '%s' "$data" > "$f"
+    printf '%s' "$data"
+}
+
 # Función para obtener emojis
 get_emoji() {
     local value=$1
@@ -77,18 +107,25 @@ done
 # URL de ipinfo.io para obtener información geográfica basada en la IP actual
 API_URL="https://ipinfo.io/json"
 
-# Realiza la solicitud a ipinfo.io y obtiene la respuesta en formato JSON
-response=$(curl -s "$API_URL")
+# Realiza la solicitud a ipinfo.io (con caché)
+response=$(_hoy_fetch ipinfo "$API_URL")
 
 # Extrae la latitud y longitud de la respuesta JSON
 latitude=$(echo "$response" | jq -r '.loc | split(",")[0]')
 longitude=$(echo "$response" | jq -r '.loc | split(",")[1]')
 
-# Define la URL de la API y tu clave de API
-API_URL="https://api.weatherapi.com/v1/forecast.json?key=${API_WHWATHERAPI_KEY}&q=${latitude},${longitude}&days=3&aqi=no&alerts=no"
+# Clave de la API del clima (defínela en .env como WEATHERAPI_KEY)
+weather_key=${WEATHERAPI_KEY:-${API_WHWATHERAPI_KEY:-}}
+if [[ -z $weather_key ]]; then
+    echo "hoy: falta WEATHERAPI_KEY (defínela en ~/oh-my-bash-fork/.env)." >&2
+    exit 1
+fi
 
-# Realiza la solicitud a la API y obtiene la respuesta en formato JSON
-response=$(curl -s "$API_URL")
+# Define la URL de la API
+API_URL="https://api.weatherapi.com/v1/forecast.json?key=${weather_key}&q=${latitude},${longitude}&days=3&aqi=no&alerts=no"
+
+# Realiza la solicitud a la API (con caché)
+response=$(_hoy_fetch weather "$API_URL")
 
 # Imprime las condiciones para las próximas horas según los parámetros
 echo "Condiciones para las próximas $HOURS horas con un paso de $STEP horas:"

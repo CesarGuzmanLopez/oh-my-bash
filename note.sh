@@ -14,6 +14,20 @@ if [[ "$1" == "-f" ]]; then
     exit 0
 fi
 
+# Lista/busca notas con fzf (o las lista si no hay fzf)
+if [[ "$1" == "-l" || "$1" == "--list" ]]; then
+    if command -v fzf > /dev/null 2>&1; then
+        selected=$(ls -1t "$notes_dir" 2> /dev/null |
+            fzf --height=40% --reverse --prompt='nota> ' \
+                --preview "bat --style=plain --color=always --line-range=:200 \"$notes_dir/{}\"" \
+                --preview-window 'right:60%') || exit 0
+        [[ -n "$selected" ]] && nvim "$notes_dir/$selected"
+    else
+        ls -1t "$notes_dir" 2> /dev/null
+    fi
+    exit 0
+fi
+
 # Nombre de archivo con fecha y hora
 filename="$(date +'%Y-%m-%d_%H-%M-%S').txt"
 tempfile="$notes_dir/$filename"

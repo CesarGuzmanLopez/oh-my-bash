@@ -145,6 +145,28 @@ function _omb_theme_detect_scheme {
 
 # ── palette ────────────────────────────────────────────────────
 
+# Keep bat (and fzf) in sync with the detected scheme. Override the theme
+# names with OSH_THEME_BAT_DARK / OSH_THEME_BAT_LIGHT / OSH_THEME_BAT_ANSI.
+function _omb_theme_apply_tool_theme {
+  case $OSH_THEME_SCHEME_ACTIVE in
+    light) export BAT_THEME="${OSH_THEME_BAT_LIGHT:-Monokai Extended Light}" ;;
+    ansi)  export BAT_THEME="${OSH_THEME_BAT_ANSI:-ansi}" ;;
+    *)     export BAT_THEME="${OSH_THEME_BAT_DARK:-Monokai Extended}" ;;
+  esac
+
+  if [[ -n ${FZF_DEFAULT_OPTS-} ]]; then
+    local base preset
+    base=${FZF_DEFAULT_OPTS//--color=[! ]*/}
+    base=${base//  / }
+    case $OSH_THEME_SCHEME_ACTIVE in
+      light) preset=light ;;
+      ansi)  preset=16 ;;
+      *)     preset=dark ;;
+    esac
+    export FZF_DEFAULT_OPTS="${base% } --color=$preset"
+  fi
+}
+
 function _omb_theme_load_colors {
   local scheme
   scheme=$(_omb_theme_detect_scheme)
@@ -160,6 +182,7 @@ function _omb_theme_load_colors {
     _FG_YELLOW='\[\e[33m\]'
     _FG_TEAL_D='\[\e[36m\]'
     _FG_OLIVE_D='\[\e[33m\]'
+    _omb_theme_apply_tool_theme
     return
   fi
 
@@ -240,6 +263,7 @@ function _omb_theme_load_colors {
     _FG_TEAL_D='\[\e[38;5;30m\]'
     _FG_OLIVE_D='\[\e[38;5;100m\]'
   fi
+  _omb_theme_apply_tool_theme
 }
 
 # Initialize

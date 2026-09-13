@@ -89,3 +89,9 @@ fi
 
 # No cerrar la sesión al pulsar Ctrl+D diez veces
 IGNOREEOF=${IGNOREEOF:-10}
+
+# delta: mejor paginador de diffs de git (si está instalado)
+if _omb_util_command_exists delta; then
+  export GIT_PAGER='delta'
+  export DELTA_FEATURES="${DELTA_FEATURES:+$DELTA_FEATURES }line-numbers"
+fi
