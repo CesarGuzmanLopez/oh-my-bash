@@ -28,7 +28,7 @@ _fzf_comprun() {
     case "$command" in
         cd)           find . -type d -not -path '*/\.git/*' | fzf --preview 'tree -C {} -I ".git"| head -200' --height=40% ;;
         export|unset) fzf --preview "eval 'echo \$'{}" --height=40% ;;
-        " " | "")     echo error ;;
+        " ")          echo error ;;
         *)            find . | fzf --preview 'bat --style=full --color=always --line-range :500 {}' \
                             --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
                             --height=50% ;;
@@ -41,10 +41,15 @@ __get_first_arg() {
 }
 
 insertar_texto() {
-    local result
-    result="$(_fzf_comprun $(__get_first_arg $READLINE_LINE))"
-    READLINE_LINE=$(echo "$READLINE_LINE" | awk -v texto="$result" -v posicion="$READLINE_POINT" '{print substr($0,1,posicion-1) " " texto " " substr($0,posicion)}')
-    READLINE_POINT=$(( READLINE_POINT + ${#result} + 1 ))
+    local cmd result
+    # Primer palabra de la línea actual (el comando en el que estamos)
+    cmd="${READLINE_LINE-}"
+    cmd="${cmd%% *}"
+    result=$(_fzf_comprun "$cmd") || return 0
+    [[ -n "$result" ]] || return 0
+    # Inserta en la posición del cursor sin alterar el resto de la línea
+    READLINE_LINE="${READLINE_LINE:0:READLINE_POINT} $result ${READLINE_LINE:READLINE_POINT}"
+    READLINE_POINT=$(( READLINE_POINT + ${#result} + 2 ))
 }
 
 custom_fzf_search() {
@@ -76,5 +81,16 @@ custom_fzf_search() {
 }
 
 # Bindings
-bind -x '"\C-f": custom_fzf_search'
-bind -x '"\C-t": insertar_texto'
+# OJO: ~/.fzf.bash se suele cargar DESPUÉS de oh-my-bash, y su
+# `eval "$(fzf --bash)"` re-bindea \C-t y pisa el nuestro. Registramos el
+# re-bind como hook de prompt para que el custom gane siempre.
+function _omb_fzf_rebind {
+    # Sin terminal interactiva no hay readline que enlazar
+    [[ -t 0 ]] || return 0
+    bind -x '"\C-f": custom_fzf_search'
+    bind -x '"\C-t": insertar_texto'
+}
+_omb_fzf_rebind
+if [[ $(type -t _omb_util_add_prompt_command) == function ]]; then
+    _omb_util_add_prompt_command _omb_fzf_rebind
+fi

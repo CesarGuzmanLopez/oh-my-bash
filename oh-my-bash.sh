@@ -166,6 +166,7 @@ if [[ ${#aliases[@]} -eq 0 ]]; then
     chmod              # chmod shortcuts
     ls                 # ls enhancements: la, ll, l, lrt, etc.
     misc               # misc shortcuts: h (history), tf (tailf), du1, etc.
+    ssh-kitty          # SSH sin "unknown terminal type" + ssh-term-fix/ssh-term-safe
   )
 fi
 if [[ ${#completions[@]} -eq 0 ]]; then
