@@ -1,0 +1,39 @@
+name: ShellCheck
+
+on:
+  push:
+    branches:
+      - '*'
+  pull_request:
+    branches:
+      - '*'
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install shellcheck and shfmt
+        env:
+          SHELLCHECK_VERSION: v0.10.0
+          SHFMT_VERSION: v3.14.1
+        run: |
+          curl -sSL -o shellcheck.tar.xz \
+            "https://github.com/koalaman/shellcheck/releases/download/${SHELLCHECK_VERSION}/shellcheck-${SHELLCHECK_VERSION}.linux.x86_64.tar.xz"
+          tar -xf shellcheck.tar.xz
+          sudo install "shellcheck-${SHELLCHECK_VERSION}/shellcheck" /usr/local/bin/shellcheck
+          curl -sSL -o shfmt \
+            "https://github.com/mvdan/sh/releases/download/${SHFMT_VERSION}/shfmt_${SHFMT_VERSION}_linux_amd64"
+          sudo install shfmt /usr/local/bin/shfmt
+
+      - name: ShellCheck
+        run: |
+          mapfile -t custom_files < <(find custom -name '*.sh' -print)
+          shellcheck -x --severity=warning \
+            oh-my-bash.sh note.sh hoy.sh tardis.sh test-me.sh \
+            "${custom_files[@]}" \
+            themes/kitsune/kitsune.theme.sh
+
+      - name: shfmt (custom/)
+        run: shfmt -d -i 2 -ci custom/
