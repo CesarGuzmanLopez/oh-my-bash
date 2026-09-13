@@ -4,10 +4,48 @@ Fork personal de [Oh My Bash](https://github.com/ohmybash/oh-my-bash) con tema *
 
 ## ⚡ Instalación
 
-Solo necesitas **una línea** en tu `~/.bashrc`:
+**Rápida (una línea, con verificación de dependencias):**
 
 ```bash
-source ~/oh-my-bash-fork/oh-my-bash.sh
+bash -c "$(curl -fsSL https://raw.githubusercontent.com/CesarGuzmanLopez/oh-my-bash/master/tools/install-fork.sh)"
+```
+
+Opciones del instalador: `--dir DIR`, `--no-ble` (solo el fork), `--dry-run`, `--help`.
+
+**Manual:** clona el repo y añade esto a tu `~/.bashrc`:
+
+```bash
+export OSH="$HOME/oh-my-bash-fork"
+source "$OSH/oh-my-bash.sh"
+```
+
+### Dependencias
+
+El instalador las comprueba todas y **no falla si falta alguna**: simplemente esa función no aparece (degradación elegante).
+
+| Programa | ¿Obligatorio? | Habilita |
+|---|---|---|
+| `bash` ≥ 3.2 | ✅ | El fork (ble.sh 0.4 necesita ≥ 4.3) |
+| `git` | ✅ (para instalar) | Clonar/actualizar el fork |
+| `curl` | Opcional | Descargar ble.sh, `hoy` |
+| `fzf` | Opcional | `Ctrl+F`, `Ctrl+T`, menús difusos |
+| `atuin` | Opcional | Historia SQLite y `Ctrl+R` |
+| `aichat` | Opcional | `ai`, `C-x i` |
+| `jq` | Opcional | `hoy`, parseo JSON |
+| `rg` | Opcional | Búsqueda de `Ctrl+F` |
+| `bat` | Opcional | Previsualización y `cat` |
+| `eza` | Opcional | `ls` con iconos y git |
+| `zoxide` | Opcional | `z` (salto inteligente de directorios) |
+| `make`, `gawk` | Opcional | Compilar ble.sh |
+| `kitten` (kitty) | Opcional | Integración SSH de kitty |
+| `python3` | Opcional | `tardis` |
+
+```bash
+# Arch
+sudo pacman -S fzf atuin aichat jq ripgrep bat eza zoxide make gawk
+# Debian/Ubuntu (atuin/aichat suelen ir por binario oficial)
+sudo apt install fzf jq ripgrep bat eza zoxide make gawk
+curl --proto '=https' --tlsv1.2 -LsSf https://setup.atuin.sh | sh
 ```
 
 El fork es **auto-contenido**:
@@ -155,6 +193,7 @@ ai "lista los archivos más grandes"   # genera el comando (no lo ejecuta)
 ai -x "cuenta los .sh del directorio" # genera y ejecuta (confirmación)
 ai -e "df -h"                         # explica un comando
 ai -m "¿qué hace trap en bash?"       # chat normal
+ai <Tab>                              # completa las banderas (-x/-e/-m/…)
 ai --help
 ```
 - Tecla `C-x i` (ble.sh): toma lo escrito y lo reemplaza por el comando generado.

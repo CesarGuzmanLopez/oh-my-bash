@@ -33,6 +33,7 @@ jobs:
           shellcheck -x --severity=warning \
             oh-my-bash.sh note.sh hoy.sh tardis.sh test-me.sh \
             tools/setup-shell-extras.sh \
+            tools/install-fork.sh \
             "${custom_files[@]}" \
             themes/kitsune/kitsune.theme.sh
 
