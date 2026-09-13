@@ -204,12 +204,28 @@ sudo pacman -S atuin aichat             # dependencias
 ai "lista los archivos más grandes"   # genera el comando (no lo ejecuta)
 ai -x "cuenta los .sh del directorio" # genera y ejecuta (confirmación)
 ai -e "df -h"                         # explica un comando
-ai -m "¿qué hace trap en bash?"       # chat normal
+ai -m "¿qué hace trap en bash?"       # chat normal (sin contexto de shell)
+ai --nota "proyecto fork oh-my-bash"  # guarda una nota de contexto
 ai <Tab>                              # completa las banderas (-x/-e/-m/…)
 ai --help
 ```
 - Tecla `C-x i` (ble.sh): toma lo escrito y lo reemplaza por el comando generado.
 - Requiere `GROQ_API_KEY` en `.env`; modelo configurable con `OSH_AI_MODEL`.
+
+### Contexto de `ai` (solo generar/explicar)
+Al generar (`ai`, `-x`, `C-x i`) o explicar (`-e`) se envía un contexto compacto de
+**máximo `OSH_AI_CONTEXT_MAX` (600) caracteres**:
+```
+c=<cwd> h=<últimos N comandos·ok|x> f=<archivos> n=<nota>
+```
+- `h=`: los últimos **`OSH_AI_HISTORY_N` (3)** comandos de la sesión con `ok`/`x`.
+- `f=`: hasta **`OSH_AI_LS_MAX` (20)** nombres (sin ocultos salvo `OSH_AI_SHOW_HIDDEN=1`).
+- `n=`: nota manual (`ai --nota`).
+- Los secretos se enmascaran antes de enviar/cachear (`KEY/TOKEN/BEARER/gsk_/…`).
+- **Cachés** en `$OSH_CACHE_DIR` (chmod 600): contexto (`ai-context`, TTL `OSH_AI_CONTEXT_TTL=60`)
+  y respuestas (`ai-resp-*`, `OSH_AI_RESPONSE_CACHE=1`) para no repetir llamadas.
+- `ai -m` **no** recibe contexto de shell.
+- Desactivar contexto/caches: `OSH_AI_CONTEXT=0`, `OSH_AI_RESPONSE_CACHE=0`.
 
 ## Using Oh My Bash
 
