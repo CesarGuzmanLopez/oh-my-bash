@@ -123,6 +123,15 @@ EOF
   [[ "$ctx" == c=* ]]
 }
 
+@test "el contexto incluye el sistema operativo" {
+  local osfile="$BATS_TEST_TMPDIR/os-release"
+  printf 'ID=ubuntu\n' > "$osfile"
+  OSH_AI_OS_RELEASE="$osfile"
+  local ctx
+  ctx=$(_osh_ai_context)
+  [[ "$ctx" == *"os=ubuntu"* ]]
+}
+
 @test "redacta secretos" {
   run _osh_ai_redact <<< "export TOKEN=abc123 gsk_ZZZ ghp_ABC sk-1234567890abcd"
   [[ "$output" != *"abc123"* ]]

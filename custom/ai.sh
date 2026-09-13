@@ -32,6 +32,7 @@ OSH_AI_CONTEXT_TTL=${OSH_AI_CONTEXT_TTL:-60}
 OSH_AI_RESPONSE_CACHE=${OSH_AI_RESPONSE_CACHE:-1}
 OSH_AI_RESPONSE_TTL=${OSH_AI_RESPONSE_TTL:-60}
 OSH_AI_SHOW_HIDDEN=${OSH_AI_SHOW_HIDDEN:-0}
+OSH_AI_OS_RELEASE=${OSH_AI_OS_RELEASE:-/etc/os-release}
 
 function _osh_ai_check {
   if ! _omb_util_command_exists aichat; then
@@ -160,6 +161,19 @@ function _osh_ai_hist_context {
   printf '%s' "${out[*]}"
 }
 
+# SO: "arch", "ubuntu", "debian", "fedora"… (ID de os-release; uname como fallback)
+function _osh_ai_os_context {
+  local id=''
+  if [[ -r $OSH_AI_OS_RELEASE ]]; then
+    id=$(command grep -m1 '^ID=' "$OSH_AI_OS_RELEASE" 2>/dev/null)
+    id=${id#ID=}
+    id=${id%\"}
+    id=${id#\"}
+  fi
+  [[ -n $id ]] || id=$(uname -s 2>/dev/null | tr '[:upper:]' '[:lower:]')
+  printf '%s' "$id"
+}
+
 # Bloque compacto respetando el límite duro de caracteres.
 function _osh_ai_context {
   local max=$OSH_AI_CONTEXT_MAX
@@ -170,6 +184,12 @@ function _osh_ai_context {
   piece="c=${PWD/#$HOME/~}"
   parts+=("$piece")
   budget=$((budget - ${#piece} - 1))
+
+  piece="os=$(_osh_ai_os_context)"
+  if ((${#piece} <= budget)); then
+    parts+=("$piece")
+    budget=$((budget - ${#piece} - 1))
+  fi
 
   local notes
   notes=$(_osh_ai_notes_file)
@@ -284,8 +304,9 @@ ai -m "pregunta"      Chat normal con el modelo (sin contexto)
 ai --nota [texto]     Guarda/muestra una nota de contexto
 ai <Tab>              Completa las banderas
 
-Contexto (solo generar/explicar): OSH_AI_CONTEXT_MAX (600), OSH_AI_LS_MAX (20),
-OSH_AI_HISTORY_N (3), OSH_AI_CONTEXT_TTL (60), OSH_AI_SHOW_HIDDEN (0).
+Contexto (solo generar/explicar): cwd, SO, últimos N comandos (ok/x), archivos y nota.
+Config: OSH_AI_CONTEXT_MAX (600), OSH_AI_LS_MAX (20), OSH_AI_HISTORY_N (3),
+OSH_AI_CONTEXT_TTL (60), OSH_AI_SHOW_HIDDEN (0), OSH_AI_OS_RELEASE.
 Response cache: OSH_AI_RESPONSE_CACHE=1, OSH_AI_RESPONSE_TTL=60.
 EOF
       return 0

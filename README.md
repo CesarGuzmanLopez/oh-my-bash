@@ -216,8 +216,9 @@ ai --help
 Al generar (`ai`, `-x`, `C-x i`) o explicar (`-e`) se envía un contexto compacto de
 **máximo `OSH_AI_CONTEXT_MAX` (600) caracteres**:
 ```
-c=<cwd> h=<últimos N comandos·ok|x> f=<archivos> n=<nota>
+c=<cwd> os=<so> h=<últimos N comandos·ok|x> f=<archivos> n=<nota>
 ```
+- `os=`: `arch`, `ubuntu`, `debian`, `fedora`… (de `/etc/os-release`, `uname` como respaldo).
 - `h=`: los últimos **`OSH_AI_HISTORY_N` (3)** comandos de la sesión con `ok`/`x`.
 - `f=`: hasta **`OSH_AI_LS_MAX` (20)** nombres (sin ocultos salvo `OSH_AI_SHOW_HIDDEN=1`).
 - `n=`: nota manual (`ai --nota`).
