@@ -124,6 +124,42 @@ Se carga automáticamente si `zoxide` está instalado: `z dir`, `zi`. Desactíva
 - Tests con `bats`: `bats tests/`.
 - `hoy` requiere `WEATHERAPI_KEY` en `.env`.
 
+## 🐚 Shell interactivo: ble.sh + atuin + IA (Groq)
+
+Instalador idempotente (no instala paquetes, solo configura):
+
+```bash
+tools/setup-shell-extras.sh --dry-run   # ver qué haría
+tools/setup-shell-extras.sh             # aplicar
+sudo pacman -S atuin aichat             # dependencias
+```
+
+### ble.sh (ghost text + resaltado de sintaxis)
+- Instalación user-space (sin sudo): `make install PREFIX=~/.local` → `~/.local/share/blesh`.
+- En `~/.bashrc`: `source .../ble.sh --attach=none` al inicio y `ble-attach` al final.
+- `~/.blerc` (plantilla en `templates/blerc.example`):
+  - `bleopt prompt_command_changes_layout=1` (el tema kitsune reescribe `PS1`).
+  - fzf vía `ble-import integration/fzf-*` de blesh-contrib.
+- Con ble.sh, los bindings del fork usan `ble-bind` (`Ctrl+F` buscar, `Ctrl+T` insertar).
+
+### atuin (historia + `Ctrl+R` + sync)
+- `sudo pacman -S atuin` y `eval "$(atuin init bash)"` al final de `~/.bashrc`.
+- Usa ble.sh como backend de `preexec`; compruébalo con `atuin doctor` → `"preexec": "blesh-…"`.
+
+### IA con Groq (`openai/gpt-oss-20b`)
+`aichat` configurado con el cliente `groq` (OpenAI-compatible) y
+`reasoning_format: hidden` para que **no** muestre el bloque `<think>`.
+
+```bash
+ai "lista los archivos más grandes"   # genera el comando (no lo ejecuta)
+ai -x "cuenta los .sh del directorio" # genera y ejecuta (confirmación)
+ai -e "df -h"                         # explica un comando
+ai -m "¿qué hace trap en bash?"       # chat normal
+ai --help
+```
+- Tecla `C-x i` (ble.sh): toma lo escrito y lo reemplaza por el comando generado.
+- Requiere `GROQ_API_KEY` en `.env`; modelo configurable con `OSH_AI_MODEL`.
+
 ## Using Oh My Bash
 
 ### Plugins

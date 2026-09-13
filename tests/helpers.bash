@@ -17,3 +17,10 @@ load_personal() {
   # shellcheck source=/dev/null
   source "$BATS_TEST_DIRNAME/../custom/personal.sh"
 }
+
+# Carga el helper de IA (custom/ai.sh) aislado
+load_ai() {
+  _omb_util_command_exists() { command -v "$1" > /dev/null 2>&1; }
+  # shellcheck source=/dev/null
+  source "$BATS_TEST_DIRNAME/../custom/ai.sh"
+}
