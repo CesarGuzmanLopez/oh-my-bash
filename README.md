@@ -159,12 +159,15 @@ Se carga automáticamente si `zoxide` está instalado: `z dir`, `zi`. Desactíva
 
 ### Arranque fluido (incluso sin internet)
 El arranque no se bloquea nunca por la red ni por comandos externos lentos:
+- **Completions perezosas**: `npm`/`uv` ya no lanzan la herramienta al arrancar; se generan la primera vez que pulsas Tab y se cachean en `$OSH_CACHE_DIR/completions/` (`lib/omb-completion-lazy.sh`).
+- **nvm perezoso** (`custom/nvm-lazy.sh`): `node`/`npm` quedan en el PATH y `nvm` se carga la primera vez que se usa (`OSH_LAZY_NVM=0` para desactivar).
+- **Paleta de kitty cacheada** en `$OSH_CACHE_DIR/kitty-colors`: el prompt no ejecuta `kitten` (se refresca en background); `refreshcolor` fuerza una lectura nueva.
+- **Detección de esquema en segundo plano**: el watcher lee una caché y refresca en background (antes llamaba `kitten` cada 3 s, ~17 ms de hitch).
 - Todos los comandos externos del tema (`kitten`, `kreadconfig`, `gsettings`) llevan **timeout** de 0,5 s; `gsettings` solo se consulta con una sesión GNOME real.
-- La paleta de kitty se pide **una sola vez** por recarga (antes eran 2-3 llamadas).
-- Chequeo de conexión **en segundo plano** con **3 reintentos** (`_omb_util_bg`), resultado cacheado en `$OSH_CACHE_DIR/online` y consultable con `_omb_util_online`. Desactívalo con `OSH_ONLINE_CHECK=0`; reintentos con `OSH_ONLINE_RETRIES`.
-- `ng completion` en `~/.bashrc` se cachea y se genera en background (no bloquea).
+- Chequeo de conexión **en segundo plano** con **3 reintentos** (`_omb_util_bg`), cacheado en `$OSH_CACHE_DIR/online` y consultable con `_omb_util_online`. Config: `OSH_ONLINE_CHECK`, `OSH_ONLINE_RETRIES`.
+- `ng completion` en `~/.bashrc` se cachea y se genera en background.
 
-Referencia medida: ~0.41 s de arranque, **igual con o sin red** (antes ~0.82 s).
+Referencia medida: arranque ~0.13 s, **igual con o sin red** (partida: ~0.82 s). El coste restante principal es ble.sh (~110 ms), que es el motor de edición.
 
 ### Calidad
 - `shellcheck` + `shfmt` sobre `custom/` y scripts del fork.
