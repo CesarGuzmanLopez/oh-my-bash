@@ -41,3 +41,9 @@ load_online() {
   # shellcheck source=/dev/null
   source "$BATS_TEST_DIRNAME/../custom/online.sh"
 }
+
+# Carga el helper de completions perezosas
+load_lazy_completion() {
+  # shellcheck source=/dev/null
+  source "$BATS_TEST_DIRNAME/../lib/omb-completion-lazy.sh"
+}
