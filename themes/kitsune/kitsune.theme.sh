@@ -54,11 +54,11 @@ function _omb_theme_kitten_colors {
   local cache=${OSH_CACHE_DIR:-$OSH/cache}/kitty-colors
   if [[ -s $cache ]]; then
     command cat "$cache"
-    (
+    # Nested subshell: bash prints no job-control notice for the refresh.
+    ( (
       _omb_theme_kitten_fetch >|"$cache.tmp" 2>/dev/null &&
         command mv "$cache.tmp" "$cache"
-    ) >/dev/null 2>&1 &
-    disown 2>/dev/null || true
+    ) >/dev/null 2>&1 &)
   else
     local colors
     colors=$(_omb_theme_kitten_fetch)
@@ -399,7 +399,6 @@ function get_symbol_user_info {
 _omb_theme_scm_dir=
 _omb_theme_scm_is_repo=0
 _omb_theme_scm_async_dir=
-_omb_theme_scm_async_pid=
 
 function _omb_theme_scm_check_repo {
   if [[ ${PWD-} != "$_omb_theme_scm_dir" ]]; then
@@ -421,15 +420,17 @@ function _omb_theme_scm_refresh {
   [[ -n $_omb_theme_scm_async_dir ]] ||
     _omb_theme_scm_async_dir=${TMPDIR:-/tmp}/omb-prompt-$$
   [[ -d $_omb_theme_scm_async_dir ]] || command mkdir -p "$_omb_theme_scm_async_dir" 2>/dev/null
-  local key f
+  local key f lock
   key=$(printf '%s' "$PWD" | cksum | awk '{print $1}')
   f="$_omb_theme_scm_async_dir/$key"
-  if [[ -z $_omb_theme_scm_async_pid ]] || ! kill -0 "$_omb_theme_scm_async_pid" 2>/dev/null; then
-    (
+  lock="$_omb_theme_scm_async_dir/lock"
+  # Atomic lock (mkdir) so fast prompts don't pile up workers, and a nested
+  # subshell so bash prints no job-control notice.
+  if command mkdir "$lock" 2>/dev/null; then
+    ( (
       scm_prompt_info >|"$f.tmp" 2>/dev/null && command mv "$f.tmp" "$f"
-      exit 0
-    ) >/dev/null 2>&1 &
-    _omb_theme_scm_async_pid=$!
+      command rmdir "$lock" 2>/dev/null
+    ) >/dev/null 2>&1 &)
   fi
 }
 
@@ -495,7 +496,6 @@ SCM_THEME_PROMPT_SUFFIX=""
 # not forced. In a plain SSH session it stays `ansi` and polls nothing.
 
 _omb_theme_scheme_checked=0
-_omb_theme_scheme_bg_pid=
 
 function _omb_theme_scheme_cache_file {
   printf '%s/theme-scheme' "${OSH_CACHE_DIR:-$OSH/cache}"
@@ -523,22 +523,20 @@ function _omb_theme_scheme_watch {
     fi
   fi
 
-  # Refresh the cache in the background; never blocks the prompt.
-  if [[ -z $_omb_theme_scheme_bg_pid ]] || ! kill -0 "$_omb_theme_scheme_bg_pid" 2>/dev/null; then
-    (
-      local s
-      s=$(_omb_theme_detect_scheme 2>/dev/null)
-      if [[ -n $s ]]; then
-        command mkdir -p "${cache%/*}" 2>/dev/null
-        # `>|` overrides noclobber (oh-my-bash enables it)
-        if printf '%s\n' "$s" >|"$cache.tmp" 2>/dev/null; then
-          command mv "$cache.tmp" "$cache" 2>/dev/null
-        fi
+  # Refresh the cache in the background. The nested subshell makes bash print
+  # no job-control notice ([1] pid / "Hecho"); it still writes the cache.
+  ( (
+    local s
+    s=$(_omb_theme_detect_scheme 2>/dev/null)
+    if [[ -n $s ]]; then
+      command mkdir -p "${cache%/*}" 2>/dev/null
+      # `>|` overrides noclobber (oh-my-bash enables it)
+      if printf '%s\n' "$s" >|"$cache.tmp" 2>/dev/null; then
+        command mv "$cache.tmp" "$cache" 2>/dev/null
       fi
-      exit 0
-    ) >/dev/null 2>&1 &
-    _omb_theme_scheme_bg_pid=$!
-  fi
+    fi
+    exit 0
+  ) >/dev/null 2>&1 &)
 }
 
 _omb_util_add_prompt_command _omb_theme_scheme_watch

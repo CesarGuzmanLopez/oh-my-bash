@@ -10,10 +10,11 @@
 # Desactiva el chequeo con OSH_ONLINE_CHECK=0.
 
 # Ejecuta un comando en segundo plano con timeout y hasta N reintentos.
+# El subshell anidado evita el aviso de job-control ([1] pid / "Hecho").
 function _omb_util_bg {
   local retries=${1:-3} seconds=${2:-3}
   shift 2
-  (
+  ( (
     local i
     for ((i = 0; i < retries; i++)); do
       if command -v timeout >/dev/null 2>&1; then
@@ -24,8 +25,7 @@ function _omb_util_bg {
       ((i + 1 < retries)) && sleep "$((i + 1))"
     done
     exit 1
-  ) >/dev/null 2>&1 &
-  disown 2>/dev/null || true
+  ) >/dev/null 2>&1 &)
 }
 
 # Prueba rápida de conectividad: TCP (bash /dev/tcp) y DNS como respaldo.
@@ -42,7 +42,7 @@ function _omb_util_check_online_bg {
   local cache=${OSH_CACHE_DIR:-$OSH/cache}
   local retries=${OSH_ONLINE_RETRIES:-3}
   command mkdir -p "$cache" 2>/dev/null
-  (
+  ( (
     local i
     for ((i = 0; i < retries; i++)); do
       if _omb_util_online_probe; then
@@ -53,8 +53,7 @@ function _omb_util_check_online_bg {
     done
     printf '0\n' >|"$cache/online"
     exit 0
-  ) >/dev/null 2>&1 &
-  disown 2>/dev/null || true
+  ) >/dev/null 2>&1 &)
 }
 
 # Estado cacheado (1 = online).
