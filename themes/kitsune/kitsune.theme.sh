@@ -455,6 +455,11 @@ SCM_THEME_PROMPT_SUFFIX=""
 # not forced. In a plain SSH session it stays `ansi` and polls nothing.
 
 _omb_theme_scheme_checked=0
+_omb_theme_scheme_bg_pid=
+
+function _omb_theme_scheme_cache_file {
+  printf '%s/theme-scheme' "${OSH_CACHE_DIR:-$OSH/cache}"
+}
 
 function _omb_theme_scheme_watch {
   # A forced scheme never changes on its own
@@ -466,10 +471,30 @@ function _omb_theme_scheme_watch {
   ((interval > 0)) || return 0
   ((SECONDS - _omb_theme_scheme_checked < interval)) && return
   _omb_theme_scheme_checked=$SECONDS
-  local scheme
-  scheme=$(_omb_theme_detect_scheme 2>/dev/null)
-  [[ -n $scheme && $scheme != "${OSH_THEME_SCHEME_ACTIVE:-}" ]] || return
-  _omb_theme_load_colors
+
+  # Apply the cached scheme if it changed. No external command runs on the
+  # prompt path (detection happens in the background below).
+  local cache scheme
+  cache=$(_omb_theme_scheme_cache_file)
+  if [[ -r $cache ]]; then
+    scheme=$(<"$cache")
+    if [[ -n $scheme && $scheme != "${OSH_THEME_SCHEME_ACTIVE:-}" ]]; then
+      _omb_theme_load_colors
+    fi
+  fi
+
+  # Refresh the cache in the background; never blocks the prompt.
+  if [[ -z $_omb_theme_scheme_bg_pid ]] || ! kill -0 "$_omb_theme_scheme_bg_pid" 2>/dev/null; then
+    (
+      local s
+      s=$(_omb_theme_detect_scheme 2>/dev/null)
+      if [[ -n $s ]]; then
+        mkdir -p "${cache%/*}" 2>/dev/null
+        printf '%s\n' "$s" >"$cache.tmp" && mv "$cache.tmp" "$cache"
+      fi
+    ) >/dev/null 2>&1 &
+    _omb_theme_scheme_bg_pid=$!
+  fi
 }
 
 _omb_util_add_prompt_command _omb_theme_scheme_watch
