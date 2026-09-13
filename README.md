@@ -92,6 +92,38 @@ Ejemplo de un host que da el error, arreglado de forma permanente:
 ssh-term-fix root@ubuntu
 ```
 
+## ✨ Extras del fork
+
+### CLI moderna (con fallback)
+- `ls`/`l`/`ll`/`la`/`lt`/`lr` usan **eza** (iconos + git) si está instalado; si no, `ls` normal.
+- `cat`/`catn`/`catp` usan **bat**.
+- Desactívalo con `OSH_MODERN_CLI=0`. Reemplazos de `grep`/`find` (semántica distinta): `OSH_MODERN_CLI_AGGRESSIVE=1`.
+
+### zoxide
+Se carga automáticamente si `zoxide` está instalado: `z dir`, `zi`. Desactívalo con `OSH_ENABLE_ZOXIDE=0`.
+
+### Funciones y helpers
+| Comando | Qué hace |
+|---|---|
+| `take DIR` / `mkcd DIR` | crea el directorio y entra |
+| `extract FILE` | descomprime tar/zip/7z/rar/gz/xz/zst/rpm/deb |
+| `gcof` | cambiar de rama git con fzf (preview del log) |
+| `killf` | elegir y matar un proceso |
+| `cdf` / `editf` | cd / abrir archivo con fzf |
+| `note -l` | listar/buscar notas con fzf |
+| `git-sync-a-pruebas` | sincroniza ramas de `origin` a `pruebas` |
+| `updateAll` | actualiza y limpia el sistema (solo Arch) |
+| `refreshcolor` | recarga kitty y re-aplica el tema |
+
+### Rendimiento del prompt
+- El git status se calcula en un directorio solo si es un repo, y opcionalmente en segundo plano: `OSH_PROMPT_ASYNC_GIT=1`.
+- Perfilado de arranque por fases: `OSH_PROFILE=1 bash -lic true`.
+
+### Calidad
+- `shellcheck` + `shfmt` sobre `custom/` y scripts del fork.
+- Tests con `bats`: `bats tests/`.
+- `hoy` requiere `WEATHERAPI_KEY` en `.env`.
+
 ## Using Oh My Bash
 
 ### Plugins
