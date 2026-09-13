@@ -28,13 +28,21 @@ function _omb_theme_in_kitty {
   [[ -n ${KITTY_WINDOW_ID-} ]] && _omb_util_command_exists kitten
 }
 
+# Run an external command with a short timeout, so a hung socket/dbus/kdeglobals
+# can never block the prompt.
+function _omb_theme_run_timeout {
+  local seconds=$1
+  shift
+  if _omb_util_command_exists timeout; then
+    timeout "$seconds" "$@" 2>/dev/null
+  else
+    "$@" 2>/dev/null
+  fi
+}
+
 # `kitten @ get-colors` with a timeout so it can never hang a remote shell
 function _omb_theme_kitten_colors {
-  if _omb_util_command_exists timeout; then
-    timeout 1 kitten @ get-colors 2> /dev/null
-  else
-    kitten @ get-colors 2> /dev/null
-  fi
+  _omb_theme_run_timeout 0.5 kitten @ get-colors
 }
 
 # Is a KDE/Plasma session actually active? (kdeglobals may exist even
@@ -47,10 +55,19 @@ function _omb_theme_kde_active {
   # Fallback: only trust a running Plasma/KWin if we actually have a display
   [[ -n ${DISPLAY-}${WAYLAND_DISPLAY-} ]] || return 1
   if _omb_util_command_exists pgrep; then
-    pgrep -x plasmashell > /dev/null 2>&1 && return 0
-    pgrep -x kwin_wayland > /dev/null 2>&1 && return 0
-    pgrep -x kwin_x11 > /dev/null 2>&1 && return 0
+    pgrep -x plasmashell >/dev/null 2>&1 && return 0
+    pgrep -x kwin_wayland >/dev/null 2>&1 && return 0
+    pgrep -x kwin_x11 >/dev/null 2>&1 && return 0
   fi
+  return 1
+}
+
+# Is a GNOME/Unity session actually active? `gsettings` can hang for seconds
+# without a session (headless, SSH, KDE), so only query it when GNOME runs.
+function _omb_theme_gnome_active {
+  [[ -n ${GNOME_DESKTOP_SESSION_ID-} ]] && return 0
+  [[ -n ${GNOME_SHELL_SESSION_MODE-} ]] && return 0
+  case ${XDG_CURRENT_DESKTOP-} in *[Gg][Nn][Oo][Mm][Ee]* | *[Uu]nity*) return 0 ;; esac
   return 1
 }
 
@@ -58,7 +75,7 @@ function _omb_theme_kde_active {
 function _omb_theme_has_dynamic_source {
   _omb_theme_in_kitty && return 0
   _omb_theme_kde_active && return 0
-  _omb_util_command_exists gsettings && return 0
+  _omb_theme_gnome_active && _omb_util_command_exists gsettings && return 0
   return 1
 }
 
@@ -66,22 +83,29 @@ function _omb_theme_has_dynamic_source {
 function _omb_theme_luminance {
   local spec=$1 r g b
   if [[ $spec == \#* ]]; then
-    r=$((16#${spec:1:2})); g=$((16#${spec:3:2})); b=$((16#${spec:5:2}))
+    r=$((16#${spec:1:2}))
+    g=$((16#${spec:3:2}))
+    b=$((16#${spec:5:2}))
   elif [[ $spec =~ ^([0-9]+),([0-9]+),([0-9]+)$ ]]; then
-    r=${BASH_REMATCH[1]}; g=${BASH_REMATCH[2]}; b=${BASH_REMATCH[3]}
+    r=${BASH_REMATCH[1]}
+    g=${BASH_REMATCH[2]}
+    b=${BASH_REMATCH[3]}
   else
     return 1
   fi
   # Perceived luminance (ITU-R BT.601)
-  local lum=$(( (r * 299 + g * 587 + b * 114) / 1000 ))
-  if (( lum < 128 )); then printf 'dark\n'; else printf 'light\n'; fi
+  local lum=$(((r * 299 + g * 587 + b * 114) / 1000))
+  if ((lum < 128)); then printf 'dark\n'; else printf 'light\n'; fi
 }
 
 # Print the active scheme: dark | light | ansi
 function _omb_theme_detect_scheme {
   # 1) Explicit override
   case ${OSH_THEME_SCHEME:-auto} in
-    dark | light | ansi) printf '%s\n' "$OSH_THEME_SCHEME"; return ;;
+    dark | light | ansi)
+      printf '%s\n' "$OSH_THEME_SCHEME"
+      return
+      ;;
   esac
 
   # 2) kitty live colors
@@ -95,7 +119,8 @@ function _omb_theme_detect_scheme {
   #    describe the client terminal (Windows/macOS/other), so just use the
   #    terminal's own colors.
   if [[ -n ${SSH_CLIENT-}${SSH_CONNECTION-}${SSH_TTY-} ]]; then
-    printf 'ansi\n'; return
+    printf 'ansi\n'
+    return
   fi
 
   # 4) KDE Plasma — only when a Plasma session is actually active
@@ -104,29 +129,47 @@ function _omb_theme_detect_scheme {
     _omb_util_command_exists "$kread" || kread=kreadconfig5
     if _omb_util_command_exists "$kread"; then
       local cs
-      cs=$("$kread" --file kdeglobals --group General --key ColorScheme 2> /dev/null)
+      cs=$(_omb_theme_run_timeout 0.5 "$kread" --file kdeglobals --group General --key ColorScheme)
       case $cs in
-        *[Dd]ark*) printf 'dark\n'; return ;;
-        *[Ll]ight*) printf 'light\n'; return ;;
+        *[Dd]ark*)
+          printf 'dark\n'
+          return
+          ;;
+        *[Ll]ight*)
+          printf 'light\n'
+          return
+          ;;
       esac
       local bg
-      bg=$("$kread" --file kdeglobals --group Colors:Window --key BackgroundNormal 2> /dev/null)
+      bg=$(_omb_theme_run_timeout 0.5 "$kread" --file kdeglobals --group Colors:Window --key BackgroundNormal)
       [[ -n $bg ]] && _omb_theme_luminance "$bg" && return
     fi
   fi
 
-  # 5) GNOME / freedesktop portal preference
-  if _omb_util_command_exists gsettings; then
+  # 5) GNOME / freedesktop portal preference (only with a real GNOME session)
+  if _omb_theme_gnome_active && _omb_util_command_exists gsettings; then
     local cs
-    cs=$(gsettings get org.gnome.desktop.interface color-scheme 2> /dev/null)
+    cs=$(_omb_theme_run_timeout 0.5 gsettings get org.gnome.desktop.interface color-scheme)
     case $cs in
-      *prefer-dark*) printf 'dark\n'; return ;;
-      *prefer-light*) printf 'light\n'; return ;;
+      *prefer-dark*)
+        printf 'dark\n'
+        return
+        ;;
+      *prefer-light*)
+        printf 'light\n'
+        return
+        ;;
     esac
-    cs=$(gsettings get org.gnome.desktop.interface gtk-theme 2> /dev/null)
+    cs=$(_omb_theme_run_timeout 0.5 gsettings get org.gnome.desktop.interface gtk-theme)
     case $cs in
-      *[Dd]ark*) printf 'dark\n'; return ;;
-      *[Ll]ight*) printf 'light\n'; return ;;
+      *[Dd]ark*)
+        printf 'dark\n'
+        return
+        ;;
+      *[Ll]ight*)
+        printf 'light\n'
+        return
+        ;;
     esac
   fi
 
@@ -134,7 +177,7 @@ function _omb_theme_detect_scheme {
   if [[ -n ${COLORFGBG-} ]]; then
     local bgidx=${COLORFGBG##*;}
     if [[ $bgidx =~ ^[0-9]+$ ]]; then
-      if (( bgidx < 8 )); then printf 'dark\n'; else printf 'light\n'; fi
+      if ((bgidx < 8)); then printf 'dark\n'; else printf 'light\n'; fi
       return
     fi
   fi
@@ -150,8 +193,8 @@ function _omb_theme_detect_scheme {
 function _omb_theme_apply_tool_theme {
   case $OSH_THEME_SCHEME_ACTIVE in
     light) export BAT_THEME="${OSH_THEME_BAT_LIGHT:-Monokai Extended Light}" ;;
-    ansi)  export BAT_THEME="${OSH_THEME_BAT_ANSI:-ansi}" ;;
-    *)     export BAT_THEME="${OSH_THEME_BAT_DARK:-Monokai Extended}" ;;
+    ansi) export BAT_THEME="${OSH_THEME_BAT_ANSI:-ansi}" ;;
+    *) export BAT_THEME="${OSH_THEME_BAT_DARK:-Monokai Extended}" ;;
   esac
 
   if [[ -n ${FZF_DEFAULT_OPTS-} ]]; then
@@ -160,22 +203,43 @@ function _omb_theme_apply_tool_theme {
     base=${base//  / }
     case $OSH_THEME_SCHEME_ACTIVE in
       light) preset=light ;;
-      ansi)  preset=16 ;;
-      *)     preset=dark ;;
+      ansi) preset=16 ;;
+      *) preset=dark ;;
     esac
     export FZF_DEFAULT_OPTS="${base% } --color=$preset"
   fi
 }
 
 function _omb_theme_load_colors {
-  local scheme
-  scheme=$(_omb_theme_detect_scheme)
+  local scheme='' kitty_colors=''
+  local -a hex_src=()
+  local i val conf
+
+  # Live kitty palette (fetched once). Needed for the palette even when the
+  # scheme is forced, so fetch it before deciding the scheme.
+  if _omb_theme_in_kitty; then
+    kitty_colors=$(_omb_theme_kitten_colors)
+  fi
+
+  # Explicit override always wins.
+  case ${OSH_THEME_SCHEME:-auto} in
+    dark | light | ansi) scheme=$OSH_THEME_SCHEME ;;
+  esac
+
+  # Otherwise derive the scheme from the live kitty background; if that is
+  # not possible, fall back to the full detection.
+  if [[ -z $scheme && -n $kitty_colors ]]; then
+    local bg
+    bg=$(printf '%s\n' "$kitty_colors" | awk '$1 == "background" { print $2; exit }')
+    [[ -n $bg ]] && scheme=$(_omb_theme_luminance "$bg")
+  fi
+  scheme=${scheme:-$(_omb_theme_detect_scheme)}
   OSH_THEME_SCHEME_ACTIVE=$scheme
 
   # ansi / fallback: no RGB blocks, terminal palette defines everything.
   if [[ $scheme == ansi ]]; then
     _BG_TIME='' _BG_SCM='' _BG_ERROR='' _BG_PYTHON='' _BG_NPM='' _BG_ENV=''
-    _FG_WHITE='\[\e[39m\]'   # default foreground (adapts to terminal)
+    _FG_WHITE='\[\e[39m\]' # default foreground (adapts to terminal)
     _FG_GREEN='\[\e[32m\]'
     _FG_TEAL='\[\e[36m\]'
     _FG_RED='\[\e[31m\]'
@@ -186,15 +250,12 @@ function _omb_theme_load_colors {
     return
   fi
 
-  local -a hex_src=()
-  local i val conf
-
-  # 1) live kitty colors
-  if _omb_theme_in_kitty; then
+  # 1) live kitty colors (already captured above, no second `kitten` call)
+  if [[ -n $kitty_colors ]]; then
     local -a live=()
     while IFS= read -r val; do
       live+=("$val")
-    done < <(_omb_theme_kitten_colors)
+    done <<<"$kitty_colors"
     for ((i = 1; i <= 6; i++)); do
       hex_src[$((i - 1))]=$(printf '%s\n' "${live[@]}" | awk -v k="color$i" '$1 == k { print $2; exit }')
     done
@@ -207,7 +268,7 @@ function _omb_theme_load_colors {
     [[ -f $conf ]] || continue
     for ((i = 1; i <= 6; i++)); do
       if [[ -z ${hex_src[$((i - 1))]} ]]; then
-        hex_src[$((i - 1))]=$(grep -m1 -E "^color${i}[[:space:]]" "$conf" 2> /dev/null |
+        hex_src[$((i - 1))]=$(grep -m1 -E "^color${i}[[:space:]]" "$conf" 2>/dev/null |
           grep -oE '#[0-9a-fA-F]{6}' | tail -1)
       fi
     done
@@ -225,7 +286,9 @@ function _omb_theme_load_colors {
   local hex r g b
   for ((i = 0; i < 6; i++)); do
     hex=${hex_src[$i]}
-    r=$((16#${hex:1:2})); g=$((16#${hex:3:2})); b=$((16#${hex:5:2}))
+    r=$((16#${hex:1:2}))
+    g=$((16#${hex:3:2}))
+    b=$((16#${hex:5:2}))
     if [[ $scheme == light ]]; then
       # Pastel: blend accent with white (75% keeps blocks visible on white)
       r=$((r + (255 - r) * 75 / 100))
@@ -233,7 +296,9 @@ function _omb_theme_load_colors {
       b=$((b + (255 - b) * 75 / 100))
     else
       # Dark: keep 30% of the accent
-      r=$((r * 30 / 100)); g=$((g * 30 / 100)); b=$((b * 30 / 100))
+      r=$((r * 30 / 100))
+      g=$((g * 30 / 100))
+      b=$((b * 30 / 100))
     fi
     bg[$i]="\e[48;2;${r};${g};${b}m"
   done
@@ -302,7 +367,7 @@ _omb_theme_scm_async_pid=
 function _omb_theme_scm_check_repo {
   if [[ ${PWD-} != "$_omb_theme_scm_dir" ]]; then
     _omb_theme_scm_dir=$PWD
-    if git rev-parse --is-inside-work-tree > /dev/null 2>&1; then
+    if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
       _omb_theme_scm_is_repo=1
     else
       _omb_theme_scm_is_repo=0
@@ -318,12 +383,12 @@ function _omb_theme_scm_refresh {
   [[ ${OSH_PROMPT_ASYNC_GIT:-0} == 1 ]] || return 0
   [[ -n $_omb_theme_scm_async_dir ]] ||
     _omb_theme_scm_async_dir=${TMPDIR:-/tmp}/omb-prompt-$$
-  [[ -d $_omb_theme_scm_async_dir ]] || mkdir -p "$_omb_theme_scm_async_dir" 2> /dev/null
+  [[ -d $_omb_theme_scm_async_dir ]] || mkdir -p "$_omb_theme_scm_async_dir" 2>/dev/null
   local key f
   key=$(printf '%s' "$PWD" | cksum | awk '{print $1}')
   f="$_omb_theme_scm_async_dir/$key"
-  if [[ -z $_omb_theme_scm_async_pid ]] || ! kill -0 "$_omb_theme_scm_async_pid" 2> /dev/null; then
-    (scm_prompt_info > "$f.tmp" 2> /dev/null && mv "$f.tmp" "$f") > /dev/null 2>&1 &
+  if [[ -z $_omb_theme_scm_async_pid ]] || ! kill -0 "$_omb_theme_scm_async_pid" 2>/dev/null; then
+    (scm_prompt_info >"$f.tmp" 2>/dev/null && mv "$f.tmp" "$f") >/dev/null 2>&1 &
     _omb_theme_scm_async_pid=$!
   fi
 }
@@ -337,7 +402,7 @@ function _omb_theme_scm_prompt_info {
     f="$_omb_theme_scm_async_dir/$key"
     [[ -r $f ]] && cat "$f"
   else
-    scm_prompt_info 2> /dev/null
+    scm_prompt_info 2>/dev/null
   fi
 }
 
@@ -353,7 +418,7 @@ function _omb_theme_PROMPT_COMMAND() {
   ((status != 0)) && SC=" ${_BG_ERROR-}${_FG_WHITE} ✗ $status ${_RST}"
 
   local bpct
-  bpct=$(battery_percentage 2> /dev/null)
+  bpct=$(battery_percentage 2>/dev/null)
   local BC=""
   if [[ -n "$bpct" && "$bpct" != "no" && "$bpct" != "-1" && "$bpct" != "100%" && "$bpct" != "0%" ]]; then
     BC=" ${_FG_TEAL_D}($bpct)${_RST}"
@@ -398,11 +463,11 @@ function _omb_theme_scheme_watch {
   esac
   _omb_theme_has_dynamic_source || return 0
   local interval=${OSH_THEME_SCHEME_INTERVAL:-3}
-  (( interval > 0 )) || return 0
-  (( SECONDS - _omb_theme_scheme_checked < interval )) && return
+  ((interval > 0)) || return 0
+  ((SECONDS - _omb_theme_scheme_checked < interval)) && return
   _omb_theme_scheme_checked=$SECONDS
   local scheme
-  scheme=$(_omb_theme_detect_scheme 2> /dev/null)
+  scheme=$(_omb_theme_detect_scheme 2>/dev/null)
   [[ -n $scheme && $scheme != "${OSH_THEME_SCHEME_ACTIVE:-}" ]] || return
   _omb_theme_load_colors
 }

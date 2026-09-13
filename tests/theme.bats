@@ -47,3 +47,20 @@ setup() {
   run _omb_theme_kde_active
   [ "$status" -ne 0 ]
 }
+
+@test "scheme derivado del fondo de kitty" {
+  load_theme
+  _omb_theme_in_kitty() { return 0; }
+  _omb_theme_kitten_colors() { printf 'background #0f0b16\ncolor1 #ff6b81\n'; }
+  _omb_theme_load_colors
+  [ "$OSH_THEME_SCHEME_ACTIVE" = dark ]
+}
+
+@test "override explícito gana al fondo de kitty" {
+  load_theme
+  _omb_theme_in_kitty() { return 0; }
+  _omb_theme_kitten_colors() { printf 'background #0f0b16\ncolor1 #ff6b81\n'; }
+  OSH_THEME_SCHEME=light _omb_theme_load_colors
+  [ "$OSH_THEME_SCHEME_ACTIVE" = light ]
+  [[ "$_FG_WHITE" == *"30;1"* ]]
+}
