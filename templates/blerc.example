@@ -1,0 +1,21 @@
+# ~/.blerc — configuración de ble.sh (Bash Line Editor)
+# Plantilla del fork oh-my-bash-fork. Cópiala a ~/.blerc:
+#   cp templates/blerc.example ~/.blerc
+
+# El tema kitsune reescribe PS1 desde PROMPT_COMMAND; avisar a ble.sh para
+# que no descuadre el prompt.
+bleopt prompt_command_changes_layout=1
+
+# Sin marcador "[ble: EOF]" al pulsar Ctrl+D
+bleopt prompt_eol_mark=''
+
+# Ghost text desde el historial (activado por defecto en bash 4+).
+# Descomenta para desactivarlo:
+# bleopt complete_auto_history=
+
+# ── fzf mediante blesh-contrib ──
+# Sustituye a `eval "$(fzf --bash)"`. No cargamos integration/fzf-key-bindings
+# porque usamos nuestros propios bindings (Ctrl+F/Ctrl+T en custom/fzf-custom.sh)
+# y atuin para Ctrl+R.
+ble-import -d integration/fzf-initialize
+ble-import -d integration/fzf-completion

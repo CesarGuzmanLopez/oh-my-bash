@@ -84,13 +84,20 @@ custom_fzf_search() {
 # OJO: ~/.fzf.bash se suele cargar DESPUÉS de oh-my-bash, y su
 # `eval "$(fzf --bash)"` re-bindea \C-t y pisa el nuestro. Registramos el
 # re-bind como hook de prompt para que el custom gane siempre.
+# Con ble.sh hay que usar `ble-bind` (ble.sh sustituye a Readline y envuelve
+# el builtin `bind`), y sus bindings persisten, así que no hace falta el hook.
 function _omb_fzf_rebind {
-  # Sin terminal interactiva no hay readline que enlazar
+  # Sin terminal interactiva no hay editor de línea que enlazar
   [[ -t 0 ]] || return 0
-  bind -x '"\C-f": custom_fzf_search'
-  bind -x '"\C-t": insertar_texto'
+  if [[ -n ${BLE_VERSION-} ]]; then
+    ble-bind -x 'C-f' custom_fzf_search
+    ble-bind -x 'C-t' insertar_texto
+  else
+    bind -x '"\C-f": custom_fzf_search'
+    bind -x '"\C-t": insertar_texto'
+  fi
 }
 _omb_fzf_rebind
-if [[ $(type -t _omb_util_add_prompt_command) == function ]]; then
+if [[ -z ${BLE_VERSION-} && $(type -t _omb_util_add_prompt_command) == function ]]; then
   _omb_util_add_prompt_command _omb_fzf_rebind
 fi
