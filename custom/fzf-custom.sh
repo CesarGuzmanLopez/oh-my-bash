@@ -5,7 +5,9 @@
 command -v fzf >/dev/null 2>&1 || return 0
 
 # ═══ FZF Environment ═══
-export FZF_DEFAULT_OPTS="--height=40% --layout=reverse --bind=esc:cancel"
+# `esc:abort` cierra fzf SIEMPRE (con `esc:cancel` primero limpia la consulta
+# y solo aborta si ya estaba vacía → parecía que "a veces no cierra").
+export FZF_DEFAULT_OPTS="--height=40% --layout=reverse --bind=esc:abort"
 export FZF_DEFAULT_COMMAND="find . -type f -not -path '*/\.git/*'"
 
 # ═══ FZF Ctrl+T Preview ═══
@@ -29,10 +31,10 @@ _fzf_comprun() {
   local command=$1
   shift
   case "$command" in
-    cd) command find . -mindepth 1 -type d -not -path '*/\.git/*' | fzf --preview 'tree -C {} -I ".git"| head -200' --height=40% ;;
-    export | unset) fzf --preview "eval 'echo \$'{}" --height=40% ;;
+    cd) command find . -mindepth 1 -type d -not -path '*/\.git/*' | fzf --bind=esc:abort --preview 'tree -C {} -I ".git"| head -200' --height=40% ;;
+    export | unset) fzf --bind=esc:abort --preview "eval 'echo \$'{}" --height=40% ;;
     " ") echo error ;;
-    *) command find . -mindepth 1 | fzf --preview 'bat --style=full --color=always --line-range :500 {}' \
+    *) command find . -mindepth 1 | fzf --bind=esc:abort --preview 'bat --style=full --color=always --line-range :500 {}' \
       --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
       --height=50% ;;
   esac
@@ -77,6 +79,7 @@ custom_fzf_search() {
         -g '!*.wt' -g '!*.bson' -g '!storage.bson' \
         "${*:-}" |
         fzf --ansi \
+          --bind=esc:abort \
           --color "hl:-1:underline,hl+:-1:underline:reverse" \
           --delimiter : \
           --preview 'bat --color=always {1} --highlight-line {2}' \
@@ -87,7 +90,7 @@ custom_fzf_search() {
     selected=$(
       trap - INT QUIT
       command grep -rn --color=always --exclude-dir=.git "${*:-.}" 2>/dev/null |
-        fzf --ansi --delimiter : \
+        fzf --ansi --bind=esc:abort --delimiter : \
           --preview 'bat --color=always {1} --highlight-line {2}' \
           --expect=ctrl-v
     ) || return 0

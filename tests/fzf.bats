@@ -41,3 +41,15 @@ setup() {
   run declare -f custom_fzf_search
   [[ "$output" != *"--exit-0"* ]]
 }
+
+@test "Esc aborta fzf en vez de solo cancelar" {
+  [[ "$FZF_DEFAULT_OPTS" == *"esc:abort"* ]]
+  [[ "$FZF_DEFAULT_OPTS" != *"esc:cancel"* ]]
+}
+
+@test "las llamadas a fzf fuerzan --bind=esc:abort" {
+  run declare -f custom_fzf_search
+  [[ "$output" == *"--bind=esc:abort"* ]]
+  run declare -f _fzf_comprun
+  [[ "$output" == *"--bind=esc:abort"* ]]
+}
