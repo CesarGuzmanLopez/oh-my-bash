@@ -37,11 +37,27 @@ function _omb_theme_kitten_colors {
   fi
 }
 
+# Is a KDE/Plasma session actually active? (kdeglobals may exist even
+# without a running Plasma, e.g. after switching DE or in a stale config.)
+function _omb_theme_kde_active {
+  [[ -n ${KDE_FULL_SESSION-} ]] && return 0
+  [[ -n ${KDE_SESSION_VERSION-} ]] && return 0
+  case ${XDG_CURRENT_DESKTOP-} in *[Kk][Dd][Ee]*) return 0 ;; esac
+  case ${DESKTOP_SESSION-} in *[Pp]lasma* | *[Kk][Dd][Ee]*) return 0 ;; esac
+  # Fallback: only trust a running Plasma/KWin if we actually have a display
+  [[ -n ${DISPLAY-}${WAYLAND_DISPLAY-} ]] || return 1
+  if _omb_util_command_exists pgrep; then
+    pgrep -x plasmashell > /dev/null 2>&1 && return 0
+    pgrep -x kwin_wayland > /dev/null 2>&1 && return 0
+    pgrep -x kwin_x11 > /dev/null 2>&1 && return 0
+  fi
+  return 1
+}
+
 # Is there a source whose value can change while the shell is alive?
 function _omb_theme_has_dynamic_source {
   _omb_theme_in_kitty && return 0
-  [[ -n ${KDE_FULL_SESSION-}${KDE_SESSION_VERSION-} ]] && return 0
-  case ${XDG_CURRENT_DESKTOP-} in *KDE*) return 0 ;; esac
+  _omb_theme_kde_active && return 0
   _omb_util_command_exists gsettings && return 0
   return 1
 }
@@ -82,19 +98,21 @@ function _omb_theme_detect_scheme {
     printf 'ansi\n'; return
   fi
 
-  # 4) KDE Plasma
-  local kread=kreadconfig6
-  _omb_util_command_exists "$kread" || kread=kreadconfig5
-  if _omb_util_command_exists "$kread"; then
-    local cs
-    cs=$("$kread" --file kdeglobals --group General --key ColorScheme 2> /dev/null)
-    case $cs in
-      *[Dd]ark*) printf 'dark\n'; return ;;
-      *[Ll]ight*) printf 'light\n'; return ;;
-    esac
-    local bg
-    bg=$("$kread" --file kdeglobals --group Colors:Window --key BackgroundNormal 2> /dev/null)
-    [[ -n $bg ]] && _omb_theme_luminance "$bg" && return
+  # 4) KDE Plasma — only when a Plasma session is actually active
+  if _omb_theme_kde_active; then
+    local kread=kreadconfig6
+    _omb_util_command_exists "$kread" || kread=kreadconfig5
+    if _omb_util_command_exists "$kread"; then
+      local cs
+      cs=$("$kread" --file kdeglobals --group General --key ColorScheme 2> /dev/null)
+      case $cs in
+        *[Dd]ark*) printf 'dark\n'; return ;;
+        *[Ll]ight*) printf 'light\n'; return ;;
+      esac
+      local bg
+      bg=$("$kread" --file kdeglobals --group Colors:Window --key BackgroundNormal 2> /dev/null)
+      [[ -n $bg ]] && _omb_theme_luminance "$bg" && return
+    fi
   fi
 
   # 5) GNOME / freedesktop portal preference
@@ -186,10 +204,10 @@ function _omb_theme_load_colors {
     hex=${hex_src[$i]}
     r=$((16#${hex:1:2})); g=$((16#${hex:3:2})); b=$((16#${hex:5:2}))
     if [[ $scheme == light ]]; then
-      # Pastel: blend accent with white (82%)
-      r=$((r + (255 - r) * 82 / 100))
-      g=$((g + (255 - g) * 82 / 100))
-      b=$((b + (255 - b) * 82 / 100))
+      # Pastel: blend accent with white (75% keeps blocks visible on white)
+      r=$((r + (255 - r) * 75 / 100))
+      g=$((g + (255 - g) * 75 / 100))
+      b=$((b + (255 - b) * 75 / 100))
     else
       # Dark: keep 30% of the accent
       r=$((r * 30 / 100)); g=$((g * 30 / 100)); b=$((b * 30 / 100))
@@ -207,10 +225,10 @@ function _omb_theme_load_colors {
   # Foreground family
   if [[ $scheme == light ]]; then
     _FG_WHITE='\[\e[30;1m\]'
-    _FG_GREEN='\[\e[32;1m\]'
-    _FG_TEAL='\[\e[36;1m\]'
+    _FG_GREEN='\[\e[38;5;28m\]'
+    _FG_TEAL='\[\e[38;5;30m\]'
     _FG_RED='\[\e[31;1m\]'
-    _FG_YELLOW='\[\e[33;1m\]'
+    _FG_YELLOW='\[\e[38;5;130m\]'
     _FG_TEAL_D='\[\e[38;5;24m\]'
     _FG_OLIVE_D='\[\e[38;5;94m\]'
   else

@@ -51,7 +51,7 @@ Orden de detección en `auto`:
 
 1. **kitty** en vivo (`kitten @ get-colors background`)
 2. sesión **remota sin kitty** (SSH desde Windows/macOS): → `ansi`
-3. **KDE Plasma** (`kreadconfig6`/`kreadconfig5`)
+3. **KDE Plasma** solo si la sesión está activa (`KDE_FULL_SESSION`/`XDG_CURRENT_DESKTOP`/`plasma`/`kwin`, o `kreadconfig6`/`kreadconfig5`)
 4. **GNOME** (`gsettings color-scheme` / `gtk-theme`)
 5. `$COLORFGBG`
 6. respaldo → `ansi`
