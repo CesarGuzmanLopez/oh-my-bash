@@ -157,6 +157,15 @@ Se carga automáticamente si `zoxide` está instalado: `z dir`, `zi`. Desactíva
 - El git status se calcula en un directorio solo si es un repo, y opcionalmente en segundo plano: `OSH_PROMPT_ASYNC_GIT=1`.
 - Perfilado de arranque por fases: `OSH_PROFILE=1 bash -lic true`.
 
+### Arranque fluido (incluso sin internet)
+El arranque no se bloquea nunca por la red ni por comandos externos lentos:
+- Todos los comandos externos del tema (`kitten`, `kreadconfig`, `gsettings`) llevan **timeout** de 0,5 s; `gsettings` solo se consulta con una sesión GNOME real.
+- La paleta de kitty se pide **una sola vez** por recarga (antes eran 2-3 llamadas).
+- Chequeo de conexión **en segundo plano** con **3 reintentos** (`_omb_util_bg`), resultado cacheado en `$OSH_CACHE_DIR/online` y consultable con `_omb_util_online`. Desactívalo con `OSH_ONLINE_CHECK=0`; reintentos con `OSH_ONLINE_RETRIES`.
+- `ng completion` en `~/.bashrc` se cachea y se genera en background (no bloquea).
+
+Referencia medida: ~0.41 s de arranque, **igual con o sin red** (antes ~0.82 s).
+
 ### Calidad
 - `shellcheck` + `shfmt` sobre `custom/` y scripts del fork.
 - Tests con `bats`: `bats tests/`.

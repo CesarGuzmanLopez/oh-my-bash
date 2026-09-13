@@ -31,3 +31,13 @@ load_ai() {
   # shellcheck source=/dev/null
   source "$BATS_TEST_DIRNAME/../custom/ai.sh"
 }
+
+# Carga custom/online.sh sin lanzar el probe de arranque
+load_online() {
+  OSH_ONLINE_CHECK=0
+  export OSH_CACHE_DIR="$BATS_TEST_TMPDIR/cache"
+  mkdir -p "$OSH_CACHE_DIR"
+  _omb_util_command_exists() { command -v "$1" > /dev/null 2>&1; }
+  # shellcheck source=/dev/null
+  source "$BATS_TEST_DIRNAME/../custom/online.sh"
+}
