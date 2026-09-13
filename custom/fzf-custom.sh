@@ -29,10 +29,10 @@ _fzf_comprun() {
   local command=$1
   shift
   case "$command" in
-    cd) find . -type d -not -path '*/\.git/*' | fzf --preview 'tree -C {} -I ".git"| head -200' --height=40% ;;
+    cd) command find . -mindepth 1 -type d -not -path '*/\.git/*' | fzf --preview 'tree -C {} -I ".git"| head -200' --height=40% ;;
     export | unset) fzf --preview "eval 'echo \$'{}" --height=40% ;;
     " ") echo error ;;
-    *) find . | fzf --preview 'bat --style=full --color=always --line-range :500 {}' \
+    *) command find . -mindepth 1 | fzf --preview 'bat --style=full --color=always --line-range :500 {}' \
       --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
       --height=50% ;;
   esac
@@ -44,34 +44,42 @@ __get_first_arg() {
 }
 
 insertar_texto() {
-  local cmd result
+  local cmd result point
   # Primer palabra de la línea actual (el comando en el que estamos)
   cmd="${READLINE_LINE-}"
   cmd="${cmd%% *}"
+  point=${READLINE_POINT:-${#cmd}}
   result=$(_fzf_comprun "$cmd") || return 0
   [[ -n "$result" ]] || return 0
   # Inserta en la posición del cursor sin alterar el resto de la línea
-  READLINE_LINE="${READLINE_LINE:0:READLINE_POINT} $result ${READLINE_LINE:READLINE_POINT}"
-  READLINE_POINT=$((READLINE_POINT + ${#result} + 2))
+  READLINE_LINE="${READLINE_LINE:0:point} $result ${READLINE_LINE:point}"
+  READLINE_POINT=$((point + ${#result} + 2))
 }
 
 custom_fzf_search() {
   local selected
-  selected=$(rg --color=always --line-number --no-heading --smart-case --no-messages \
-    -g '!node_modules/**' \
-    -g '!.git/**' \
-    -g '!LibreChat/**' \
-    -g '!.cache/**' \
-    -g '!vendor/**' \
-    -g '!*.wt' -g '!*.bson' -g '!storage.bson' \
-    "${*:-}" |
-    fzf --ansi \
-      --color "hl:-1:underline,hl+:-1:underline:reverse" \
-      --delimiter : \
-      --preview 'bat --color=always {1} --highlight-line {2}' \
-      --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
-      --exit-0 \
-      --expect=ctrl-v) || return 0
+  # Sin `--exit-0`: aunque no haya coincidencias, fzf se despliega igual.
+  if _omb_util_command_exists rg; then
+    selected=$(rg --color=always --line-number --no-heading --smart-case --no-messages \
+      -g '!node_modules/**' \
+      -g '!.git/**' \
+      -g '!LibreChat/**' \
+      -g '!.cache/**' \
+      -g '!vendor/**' \
+      -g '!*.wt' -g '!*.bson' -g '!storage.bson' \
+      "${*:-}" |
+      fzf --ansi \
+        --color "hl:-1:underline,hl+:-1:underline:reverse" \
+        --delimiter : \
+        --preview 'bat --color=always {1} --highlight-line {2}' \
+        --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
+        --expect=ctrl-v) || return 0
+  else
+    selected=$(command grep -rn --color=always --exclude-dir=.git "${*:-.}" 2>/dev/null |
+      fzf --ansi --delimiter : \
+        --preview 'bat --color=always {1} --highlight-line {2}' \
+        --expect=ctrl-v) || return 0
+  fi
 
   if [[ -z "$selected" ]]; then return 0; fi
 
@@ -84,23 +92,22 @@ custom_fzf_search() {
 }
 
 # Bindings
-# OJO: ~/.fzf.bash se suele cargar DESPUÉS de oh-my-bash, y su
-# `eval "$(fzf --bash)"` re-bindea \C-t y pisa el nuestro. Registramos el
-# re-bind como hook de prompt para que el custom gane siempre.
-# Con ble.sh hay que usar `ble-bind` (ble.sh sustituye a Readline y envuelve
-# el builtin `bind`), y sus bindings persisten, así que no hace falta el hook.
+# OJO: ~/.fzf.bash se suele cargar DESPUÉS de oh-my-bash y su
+# `eval "$(fzf --bash)"` re-bindea \C-t. Con ble.sh se usa `ble-bind`.
+# Re-aplicamos el binding antes de cada prompt para ganar siempre.
 function _omb_fzf_rebind {
-  # Sin terminal interactiva no hay editor de línea que enlazar
-  [[ -t 0 ]] || return 0
   if [[ -n ${BLE_VERSION-} ]]; then
-    ble-bind -x 'C-f' custom_fzf_search
-    ble-bind -x 'C-t' insertar_texto
-  else
+    ble-bind -m emacs -x 'C-f' custom_fzf_search
+    ble-bind -m emacs -x 'C-t' insertar_texto
+    ble-bind -m vi_imap -x 'C-f' custom_fzf_search
+    ble-bind -m vi_imap -x 'C-t' insertar_texto
+  elif [[ -t 0 ]]; then
+    # Sin terminal interactiva no hay readline que enlazar
     bind -x '"\C-f": custom_fzf_search'
     bind -x '"\C-t": insertar_texto'
   fi
 }
 _omb_fzf_rebind
-if [[ -z ${BLE_VERSION-} && $(type -t _omb_util_add_prompt_command) == function ]]; then
+if [[ $(type -t _omb_util_add_prompt_command) == function ]]; then
   _omb_util_add_prompt_command _omb_fzf_rebind
 fi
