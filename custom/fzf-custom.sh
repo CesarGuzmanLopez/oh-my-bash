@@ -49,7 +49,12 @@ insertar_texto() {
   cmd="${READLINE_LINE-}"
   cmd="${cmd%% *}"
   point=${READLINE_POINT:-${#cmd}}
-  result=$(_fzf_comprun "$cmd") || return 0
+  # `trap - INT QUIT`: ble.sh/readline ignoran SIGINT en los widgets; sin
+  # resetearlo, fzf hereda la señal ignorada y Ctrl+C no lo cierra.
+  result=$(
+    trap - INT QUIT
+    _fzf_comprun "$cmd"
+  ) || return 0
   [[ -n "$result" ]] || return 0
   # Inserta en la posición del cursor sin alterar el resto de la línea
   READLINE_LINE="${READLINE_LINE:0:point} $result ${READLINE_LINE:point}"
@@ -59,26 +64,33 @@ insertar_texto() {
 custom_fzf_search() {
   local selected
   # Sin `--exit-0`: aunque no haya coincidencias, fzf se despliega igual.
+  # El subshell resetea INT/QUIT para que Ctrl+C cierre fzf correctamente.
   if _omb_util_command_exists rg; then
-    selected=$(rg --color=always --line-number --no-heading --smart-case --no-messages \
-      -g '!node_modules/**' \
-      -g '!.git/**' \
-      -g '!LibreChat/**' \
-      -g '!.cache/**' \
-      -g '!vendor/**' \
-      -g '!*.wt' -g '!*.bson' -g '!storage.bson' \
-      "${*:-}" |
-      fzf --ansi \
-        --color "hl:-1:underline,hl+:-1:underline:reverse" \
-        --delimiter : \
-        --preview 'bat --color=always {1} --highlight-line {2}' \
-        --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
-        --expect=ctrl-v) || return 0
+    selected=$(
+      trap - INT QUIT
+      rg --color=always --line-number --no-heading --smart-case --no-messages \
+        -g '!node_modules/**' \
+        -g '!.git/**' \
+        -g '!LibreChat/**' \
+        -g '!.cache/**' \
+        -g '!vendor/**' \
+        -g '!*.wt' -g '!*.bson' -g '!storage.bson' \
+        "${*:-}" |
+        fzf --ansi \
+          --color "hl:-1:underline,hl+:-1:underline:reverse" \
+          --delimiter : \
+          --preview 'bat --color=always {1} --highlight-line {2}' \
+          --preview-window 'up,60%,border-bottom,+{2}+3/3,~3' \
+          --expect=ctrl-v
+    ) || return 0
   else
-    selected=$(command grep -rn --color=always --exclude-dir=.git "${*:-.}" 2>/dev/null |
-      fzf --ansi --delimiter : \
-        --preview 'bat --color=always {1} --highlight-line {2}' \
-        --expect=ctrl-v) || return 0
+    selected=$(
+      trap - INT QUIT
+      command grep -rn --color=always --exclude-dir=.git "${*:-.}" 2>/dev/null |
+        fzf --ansi --delimiter : \
+          --preview 'bat --color=always {1} --highlight-line {2}' \
+          --expect=ctrl-v
+    ) || return 0
   fi
 
   if [[ -z "$selected" ]]; then return 0; fi
