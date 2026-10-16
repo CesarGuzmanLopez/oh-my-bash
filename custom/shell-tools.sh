@@ -6,11 +6,35 @@
 [[ ${OSH_SHELL_TOOLS:-1} == 1 ]] || return 0
 
 if _omb_util_command_exists thefuck; then
-  # Elfuck registra la función y su hook en PROMPT_COMMAND; se evalúa una vez
-  # por shell. Necesita history para proponer correcciones.
-  command mkdir -p "$HOME/.config/thefuck"
-  eval "$(thefuck -a 2>/dev/null)"
-  alias fucko='thefuck -y'
+  # `thefuck -a` tarda ~100 ms (arranca Python) y es la mitad del arranque del
+  # shell, así que se carga la primera vez que se usa `fuck`, no al inicio.
+  # OSH_THEFUCK_EAGER=1 vuelve al comportamiento anterior.
+  function _omb_thefuck_load {
+    unset -f _omb_thefuck_load
+    local init
+    init=$(thefuck -a 2>/dev/null) || return 1
+    [[ -n $init ]] || return 1
+    command mkdir -p "$HOME/.config/thefuck"
+    eval "$init"
+    alias fucko='thefuck -y'
+  }
+  function fuck {
+    # Si la carga falla, se usa el binario directo (sin recursión: `command`
+    # salta la función).
+    _omb_thefuck_load 2>/dev/null || {
+      command thefuck "$@"
+      return
+    }
+    fuck "$@"
+  }
+  function fucko {
+    _omb_thefuck_load 2>/dev/null || true
+    thefuck -y "$@"
+  }
+  if [[ ${OSH_THEFUCK_EAGER:-0} == 1 ]]; then
+    # Al evaluar, el `fuck` real de thefuck sustituye al envoltorio.
+    _omb_thefuck_load 2>/dev/null || true
+  fi
 fi
 
 # intelli-shell: sugerencias de comandos desde el historial.

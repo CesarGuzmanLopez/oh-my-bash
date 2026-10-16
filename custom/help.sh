@@ -138,24 +138,20 @@ function helpmeb {
   esac
 }
 
-# F1 (o C-x h) abre la ayuda en un paginador (o la imprime si no hay).
+# F1 (o C-x h) abre la ayuda. Sin paginador: al salir de `less` el terminal
+# queda como puede y el keymap de ble.sh puede quedar inconsistente, con lo
+# que F1 deja de responder (pasaba al cerrar less a mitad de la ayuda).
+# OSH_HELP_PAGER=1 restaura el paginador si alguien lo quiere.
 function _omb_help_open {
-  if [[ -t 1 ]] && _omb_help_has less; then
-    helpmeb | command less -R -F -X
+  if [[ ${OSH_HELP_PAGER:-0} == 1 ]] && [[ -t 1 ]] && _omb_help_has less; then
+    helpmeb | command less -R -F -X -K
   else
     helpmeb
   fi
+  declare -F _omb_help_bind >/dev/null 2>&1 && _omb_help_bind
+  return 0
 }
 
-if [[ -n ${BLE_VERSION-} ]]; then
-  # ble.sh nombra las teclas de función en minúscula (f1), no F1
-  ble-bind -m emacs -x f1 _omb_help_open
-  ble-bind -m vi_imap -x f1 _omb_help_open
-  # Alternativa si el terminal captura F1
-  ble-bind -m emacs -x 'C-x h' _omb_help_open
-  ble-bind -m vi_imap -x 'C-x h' _omb_help_open
-elif [[ -t 0 ]]; then
-  bind -x '"\eOP": _omb_help_open'   # F1 (xterm)
-  bind -x '"\e[11~": _omb_help_open' # F1 (linux/vt)
-  bind -x '"\C-xh": _omb_help_open'  # C-x h
-fi
+# El binding de F1 vive en `zz-help-keys.sh`: los custom se cargan en orden
+# alfabético y lo que se cargue después (p. ej. shell-tools.sh con
+# intelli-shell) puede pisar el keymap de ble.sh.

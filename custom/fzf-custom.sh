@@ -11,7 +11,15 @@ export FZF_DEFAULT_OPTS="--height=40% --layout=reverse --bind=esc:abort,ctrl-c:a
 export FZF_DEFAULT_COMMAND="find . \( -name .git -o -name node_modules -o -name .cache -o -name vendor -o -name data-node -o -name 'storage.bson' \) -prune -o -type f -print 2>/dev/null"
 
 # ═══ FZF Ctrl+T Preview ═══
-FZF_CTRL_T_OPTS="--preview 'fzf-preview {}' --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' --color --height=90%"
+# Preview por tipo con el helper `fzf-preview` (~/.local/bin). Si no está
+# instalado (clon sin dotfiles), se cae a `bat` para no romper los previews.
+_omb_preview_file="fzf-preview {}"
+_omb_preview_grep="fzf-preview {1} {2}"
+if ! _omb_util_command_exists fzf-preview; then
+  _omb_preview_file="bat --style=plain --color=always --line-range :200 {} 2>/dev/null"
+  _omb_preview_grep="bat --style=plain --color=always --highlight-line {2} --line-range {2}:+60 {1} 2>/dev/null"
+fi
+FZF_CTRL_T_OPTS="--preview '${_omb_preview_file}' --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' --color --height=90%"
 
 # ═══ FZF Compgen ═══
 _fzf_compgen_path() {
@@ -31,14 +39,14 @@ _fzf_comprun() {
   local command=$1
   shift
   case "$command" in
-    cd) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor -o -name data-node \) -prune -o -type d -print 2>/dev/null |
-      fzf --bind=esc:abort,ctrl-c:abort --preview 'tree -C {} -I ".git" 2>/dev/null | head -200' --height=40% ;;
-    export | unset) fzf --bind=esc:abort,ctrl-c:abort --preview "eval 'echo \$'{}" --height=40% ;;
-    " ") echo error ;;
-    *) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor -o -name data-node \) -prune -o -print 2>/dev/null |
-      fzf --bind=esc:abort,ctrl-c:abort --preview 'fzf-preview {}' \
-        --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
-        --height=50% ;;
+  cd) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor -o -name data-node \) -prune -o -type d -print 2>/dev/null |
+    fzf --bind=esc:abort,ctrl-c:abort --preview 'tree -C {} -I ".git" 2>/dev/null | head -200' --height=40% ;;
+  export | unset) fzf --bind=esc:abort,ctrl-c:abort --preview "eval 'echo \$'{}" --height=40% ;;
+  " ") echo error ;;
+  *) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor -o -name data-node \) -prune -o -print 2>/dev/null |
+    fzf --bind=esc:abort,ctrl-c:abort --preview "${_omb_preview_file}" \
+      --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
+      --height=50% ;;
   esac
 }
 
@@ -78,7 +86,7 @@ custom_fzf_search() {
   local rg_cmd="rg --color=always --line-number --no-heading --smart-case --no-messages -g '!node_modules/**' -g '!.git/**' -g '!LibreChat/**' -g '!.cache/**' -g '!vendor/**' -g '!*.wt' -g '!*.bson' -g '!storage.bson'"
   local grep_cmd="grep -rn --color=always --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.cache --exclude-dir=vendor"
   # Preview acotado (bat tarda ~110 ms y más en archivos grandes)
-  local preview="fzf-preview {1} {2}"
+  local preview="${_omb_preview_grep}"
 
   if _omb_util_command_exists rg; then
     (
