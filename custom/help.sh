@@ -22,6 +22,12 @@ function _omb_help_keys {
   _omb_help_t "C-x i" "IA: reemplaza el buffer por el comando generado"
   _omb_help_has atuin && _omb_help_t "Ctrl+R" "Historia difusa (atuin)"
   _omb_help_t "F1 / C-x h" "Esta ayuda"
+  _omb_help_has thefuck && _omb_help_t "fuck / fucko" "corrige el último comando fallido"
+  _omb_help_has intelli-shell && _omb_help_t "C-l" "sugiere variables del historial (intelli-shell)"
+  _omb_help_has navi && _omb_help_t "C-g / C-x n" "cheatsheet interactivo (navi)"
+  _omb_help_t "Ctrl+T / Ctrl+F" "el preview decide por tipo (ls, hex, texto, imagen)"
+  _omb_help_t "Ctrl+S / Ctrl+Q" "pausar y retomar la salida (XON/XOFF)"
+  _omb_help_t "C-x h" "abrir esta ayuda (alternativa a F1)"
   _omb_help_t "ai <Tab>" "Completa las banderas de ai"
   _omb_help_t "→ / End" "Aceptar la sugerencia fantasma (ble.sh)"
   _omb_help_t "↑ / ↓" "Navegar sugerencias del historial"
@@ -50,7 +56,8 @@ function _omb_help_functions {
   _omb_help_has git && _omb_help_t "gcof" "cambiar de rama git con fzf (preview)"
   _omb_help_t "killf" "elegir y matar un proceso con fzf"
   _omb_help_t "cdf / editf" "cd / abrir archivo con fzf"
-  _omb_help_has kitten && _omb_help_t "img ARCH" "ver la imagen en la terminal (kitten/chafa)"
+  _omb_help_has chafa && _omb_help_t "img ARCH" "ver la imagen en la terminal (chafa)"
+  _omb_help_has fzf-preview && _omb_help_t "fzf-preview ARCH" "preview por tipo (lo usa Ctrl+T/F)"
   [[ -x $HOME/.local/bin/chomp-filter ]] && _omb_help_t "chomp CMD..." "ejecutar con el filtro Pac-Man"
   _omb_help_t "updateAll" "actualizar y limpiar el sistema (Arch)"
   _omb_help_t "git-sync-a-pruebas" "sincronizar ramas origin -> pruebas"
@@ -81,6 +88,11 @@ function _omb_help_themes {
   printf '  El prompt sigue la paleta de kitty (y KDE si kitty lo sigue).\n'
   _omb_help_t "OSH_PROFILE=1 bash -lic true" "perfil de arranque por fases"
   _omb_help_t "OSH_ONLINE_CHECK=0" "desactivar la sonda de red en background"
+  _omb_help_t "OSH_SHELL_TOOLS=0" "desactivar thefuck, navi e intelli-shell"
+  _omb_help_t "OSH_LAZY_NVM=0" "cargar nvm siempre en vez de lazy"
+  _omb_help_t "OSH_MODERN_CLI=0" "desactivar los alias eza/bat"
+  _omb_help_t "OSH_SMART_BAT=0" "desactivar el bat que decide por tipo"
+  _omb_help_t "FZF_PREVIEW_DEBUG=1" "log del preview en /tmp/fzf-preview.log"
   echo
 }
 
@@ -112,17 +124,17 @@ function _omb_help_all {
 # shellcheck disable=SC2120  # se llama con y sin sección
 function helpmeb {
   case ${1-} in
-    atajos | keys) _omb_help_keys ;;
-    aliases) _omb_help_aliases ;;
-    funciones) _omb_help_functions ;;
-    ia | ai) _omb_help_ai ;;
-    temas | tema) _omb_help_themes ;;
-    ejemplos) _omb_help_examples ;;
-    "" | all) _omb_help_all ;;
-    *)
-      echo "helpmeb: sección desconocida '$1' (atajos|aliases|funciones|ia|temas|ejemplos)" >&2
-      return 2
-      ;;
+  atajos | keys) _omb_help_keys ;;
+  aliases) _omb_help_aliases ;;
+  funciones) _omb_help_functions ;;
+  ia | ai) _omb_help_ai ;;
+  temas | tema) _omb_help_themes ;;
+  ejemplos) _omb_help_examples ;;
+  "" | all) _omb_help_all ;;
+  *)
+    echo "helpmeb: sección desconocida '$1' (atajos|aliases|funciones|ia|temas|ejemplos)" >&2
+    return 2
+    ;;
   esac
 }
 
