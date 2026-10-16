@@ -8,10 +8,10 @@ command -v fzf >/dev/null 2>&1 || return 0
 # `esc:abort` cierra fzf SIEMPRE (con `esc:cancel` primero limpia la consulta
 # y solo aborta si ya estaba vacía → parecía que "a veces no cierra").
 export FZF_DEFAULT_OPTS="--height=40% --layout=reverse --bind=esc:abort,ctrl-c:abort"
-export FZF_DEFAULT_COMMAND="find . -type f -not -path '*/\.git/*'"
+export FZF_DEFAULT_COMMAND="find . \( -name .git -o -name node_modules -o -name .cache -o -name vendor -o -name data-node -o -name 'storage.bson' \) -prune -o -type f -print 2>/dev/null"
 
 # ═══ FZF Ctrl+T Preview ═══
-FZF_CTRL_T_OPTS="--preview 'bat --style=full --color=always --line-range :500 {}' --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' --color --height=90%"
+FZF_CTRL_T_OPTS="--preview 'fzf-preview {}' --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' --color --height=90%"
 
 # ═══ FZF Compgen ═══
 _fzf_compgen_path() {
@@ -31,12 +31,12 @@ _fzf_comprun() {
   local command=$1
   shift
   case "$command" in
-    cd) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor \) -prune -o -type d -print |
-      fzf --bind=esc:abort,ctrl-c:abort --preview 'tree -C {} -I ".git" | head -200' --height=40% ;;
+    cd) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor -o -name data-node \) -prune -o -type d -print 2>/dev/null |
+      fzf --bind=esc:abort,ctrl-c:abort --preview 'tree -C {} -I ".git" 2>/dev/null | head -200' --height=40% ;;
     export | unset) fzf --bind=esc:abort,ctrl-c:abort --preview "eval 'echo \$'{}" --height=40% ;;
     " ") echo error ;;
-    *) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor \) -prune -o -print |
-      fzf --bind=esc:abort,ctrl-c:abort --preview 'bat --style=plain --color=always --line-range :200 {}' \
+    *) command find . -mindepth 1 \( -name .git -o -name node_modules -o -name .cache -o -name vendor -o -name data-node \) -prune -o -print 2>/dev/null |
+      fzf --bind=esc:abort,ctrl-c:abort --preview 'fzf-preview {}' \
         --preview-window '~3' --bind='F2:toggle-preview,shift-up:preview-up,shift-down:preview-down' \
         --height=50% ;;
   esac
@@ -78,7 +78,7 @@ custom_fzf_search() {
   local rg_cmd="rg --color=always --line-number --no-heading --smart-case --no-messages -g '!node_modules/**' -g '!.git/**' -g '!LibreChat/**' -g '!.cache/**' -g '!vendor/**' -g '!*.wt' -g '!*.bson' -g '!storage.bson'"
   local grep_cmd="grep -rn --color=always --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=.cache --exclude-dir=vendor"
   # Preview acotado (bat tarda ~110 ms y más en archivos grandes)
-  local preview="bat --style=plain --color=always --highlight-line {2} --line-range {2}:+60 {1} 2>/dev/null"
+  local preview="fzf-preview {1} {2}"
 
   if _omb_util_command_exists rg; then
     (

@@ -34,7 +34,7 @@ function _omb_theme_run_timeout {
   local seconds=$1
   shift
   if _omb_util_command_exists timeout; then
-    timeout "$seconds" "$@" 2>/dev/null
+    timeout -k 0.1 "$seconds" "$@" 2>/dev/null
   else
     "$@" 2>/dev/null
   fi
@@ -42,6 +42,7 @@ function _omb_theme_run_timeout {
 
 # `kitten @ get-colors` with a timeout so it can never hang a remote shell
 function _omb_theme_kitten_fetch {
+  [[ -n ${KITTY_LISTEN_ON-} ]] || return 0
   _omb_theme_run_timeout 0.5 kitten @ get-colors
 }
 
