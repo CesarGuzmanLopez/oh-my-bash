@@ -61,8 +61,8 @@ function _osh_ai_now {
 
 function _osh_ai_mtime {
   case $(uname) in
-    Darwin) command stat -f '%m' "$1" 2>/dev/null ;;
-    *) command stat -c '%Y' "$1" 2>/dev/null ;;
+  Darwin) command stat -f '%m' "$1" 2>/dev/null ;;
+  *) command stat -c '%Y' "$1" 2>/dev/null ;;
   esac
 }
 
@@ -295,8 +295,8 @@ function _osh_ai_command {
 
 function ai {
   case ${1-} in
-    -h | --help)
-      cat <<'EOF'
+  -h | --help)
+    cat <<'EOF'
 ai "descripción"      Genera un comando de shell (no lo ejecuta)
 ai -x "descripción"   Genera y ejecuta (con confirmación)
 ai -e [comando]       Explica un comando (o el último)
@@ -309,48 +309,48 @@ Config: OSH_AI_CONTEXT_MAX (600), OSH_AI_LS_MAX (20), OSH_AI_HISTORY_N (3),
 OSH_AI_CONTEXT_TTL (60), OSH_AI_SHOW_HIDDEN (0), OSH_AI_OS_RELEASE.
 Response cache: OSH_AI_RESPONSE_CACHE=1, OSH_AI_RESPONSE_TTL=60.
 EOF
-      return 0
-      ;;
-    --nota)
-      shift
-      local notes
-      notes=$(_osh_ai_notes_file)
-      if (($#)); then
-        command mkdir -p "$(_osh_ai_cache_dir)" 2>/dev/null
-        printf '%s' "$*" >|"$notes" 2>/dev/null
-        command chmod 600 "$notes" 2>/dev/null
-        echo "Nota guardada."
-      elif [[ -s $notes ]]; then
-        command cat "$notes"
-      else
-        echo "(sin nota)"
-      fi
-      ;;
-    -e | --explain)
-      shift
-      local target=${*:-$(fc -ln -1)}
-      _osh_ai_run "$OSH_AI_EXPLAIN_SYSTEM" "$target"
-      ;;
-    -m | --message)
-      _osh_ai_check || return 1
-      shift
-      aichat --no-stream -m "$OSH_AI_MODEL" "$*" | _osh_ai_strip_think
-      ;;
-    -x | --execute)
-      shift
-      local cmd answer
-      cmd=$(_osh_ai_command "$*") || return 1
-      [[ -n $cmd ]] || {
-        echo "ai: sin sugerencia." >&2
-        return 1
-      }
-      printf 'Propuesta: %s\n' "$cmd"
-      read -r -p '¿Ejecutar? [y/N] ' answer
-      [[ $answer == [yY]* ]] && eval -- "$cmd"
-      ;;
-    *)
-      _osh_ai_command "$*"
-      ;;
+    return 0
+    ;;
+  --nota)
+    shift
+    local notes
+    notes=$(_osh_ai_notes_file)
+    if (($#)); then
+      command mkdir -p "$(_osh_ai_cache_dir)" 2>/dev/null
+      printf '%s' "$*" >|"$notes" 2>/dev/null
+      command chmod 600 "$notes" 2>/dev/null
+      echo "Nota guardada."
+    elif [[ -s $notes ]]; then
+      command cat "$notes"
+    else
+      echo "(sin nota)"
+    fi
+    ;;
+  -e | --explain)
+    shift
+    local target=${*:-$(fc -ln -1)}
+    _osh_ai_run "$OSH_AI_EXPLAIN_SYSTEM" "$target"
+    ;;
+  -m | --message)
+    _osh_ai_check || return 1
+    shift
+    aichat --no-stream -m "$OSH_AI_MODEL" "$*" | _osh_ai_strip_think
+    ;;
+  -x | --execute)
+    shift
+    local cmd answer
+    cmd=$(_osh_ai_command "$*") || return 1
+    [[ -n $cmd ]] || {
+      echo "ai: sin sugerencia." >&2
+      return 1
+    }
+    printf 'Propuesta: %s\n' "$cmd"
+    read -r -p '¿Ejecutar? [y/N] ' answer
+    [[ $answer == [yY]* ]] && eval -- "$cmd"
+    ;;
+  *)
+    _osh_ai_command "$*"
+    ;;
   esac
 }
 
@@ -365,8 +365,11 @@ function ai-insert {
 }
 
 # Keybinding C-x i (ble.sh o readline)
+# NOTE: -m explícito porque custom/ carga antes de ble-attach (sin keymap el
+# bind cae en delay file sin nombre y se pierde).
 if [[ -n ${BLE_VERSION-} ]]; then
-  ble-bind -x 'C-x i' ai-insert
+  ble-bind -m emacs -x 'C-x i' ai-insert
+  ble-bind -m vi_imap -x 'C-x i' ai-insert
 elif [[ -t 0 ]]; then
   bind -x '"\C-x i": ai-insert'
 fi
