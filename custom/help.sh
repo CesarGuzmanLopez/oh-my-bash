@@ -52,6 +52,8 @@ function _omb_help_aliases {
 function _omb_help_functions {
   _omb_help_c "▸ FUNCIONES ÚTILES"
   _omb_help_t "take DIR" "crear directorio y entrar (mkcd)"
+  _omb_help_t "proyectos [dir]" "ir a ~/Documents/Proyectos (Tab completa)"
+  _omb_help_t "proyectos open" "workspace kitty: opencode+nvim (o nvim por ssh)"
   _omb_help_t "extract ARCH" "descomprimir tar/zip/7z/rar/gz/xz/zst/rpm/deb"
   _omb_help_has git && _omb_help_t "gcof" "cambiar de rama git con fzf (preview)"
   _omb_help_t "killf" "elegir y matar un proceso con fzf"
