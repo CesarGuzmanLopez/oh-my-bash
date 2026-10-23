@@ -7,15 +7,15 @@
 
 # eza (ls)
 if _omb_util_command_exists eza; then
-  alias ls='eza --group-directories-first --icons=auto'
-  alias l='eza -lah --group-directories-first --icons=auto --git'
-  alias ll='eza -lh --group-directories-first --icons=auto --git'
-  alias la='eza -lah --group-directories-first --icons=auto'
-  alias l.='eza -d .* --group-directories-first --icons=auto'
-  alias lt='eza -lah --sort=newest --group-directories-first --icons=auto'
-  alias lr='eza -lah --tree --level=2 --group-directories-first --icons=auto'
-  alias lo='eza -lh --sort=size --reverse --group-directories-first --icons=auto'
-  alias lk='eza -lh --sort=size --group-directories-first --icons=auto'
+  alias ls='eza --group-directories-first'
+  alias l='eza -lah --group-directories-first --git'
+  alias ll='eza -lh --group-directories-first --git'
+  alias la='eza -lah --group-directories-first'
+  alias l.='eza -d .* --group-directories-first'
+  alias lt='eza -lah --sort=newest --group-directories-first'
+  alias lr='eza -lah --tree --level=2 --group-directories-first'
+  alias lo='eza -lh --sort=size --reverse --group-directories-first'
+  alias lk='eza -lh --sort=size --group-directories-first'
 fi
 
 # bat (cat)
