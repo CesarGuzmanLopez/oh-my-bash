@@ -46,8 +46,20 @@ unset -f _omb_nvm_active_bin _omb_nvm_add_active_bin
 # Carga nvm (y su completion) la primera vez que se invoca `nvm`.
 function load_nvm {
   unset -f nvm 2>/dev/null
-  [[ -e $NVM_DIR/nvm.sh ]] || ln -s /usr/share/nvm/nvm.sh "$NVM_DIR/nvm.sh" 2>/dev/null
-  [[ -e $NVM_DIR/nvm-exec ]] || ln -s /usr/share/nvm/nvm-exec "$NVM_DIR/nvm-exec" 2>/dev/null
+  # Repara symlinks al nvm de Arch (antes solo creaba si faltaban y dejaba
+  # copias rancias en ~/.nvm: bash_completion 4096B y nvm-exec 371B viejos).
+  [[ -L $NVM_DIR/nvm.sh ]] || {
+    rm -f "$NVM_DIR/nvm.sh"
+    ln -s /usr/share/nvm/nvm.sh "$NVM_DIR/nvm.sh" 2>/dev/null
+  }
+  [[ -L $NVM_DIR/nvm-exec ]] || {
+    rm -f "$NVM_DIR/nvm-exec"
+    ln -s /usr/share/nvm/nvm-exec "$NVM_DIR/nvm-exec" 2>/dev/null
+  }
+  [[ -L $NVM_DIR/bash_completion ]] || {
+    rm -f "$NVM_DIR/bash_completion"
+    ln -s /usr/share/nvm/bash_completion "$NVM_DIR/bash_completion" 2>/dev/null
+  }
   [[ -s $NVM_DIR/nvm.sh ]] && . "$NVM_DIR/nvm.sh"
   [[ -s /usr/share/nvm/bash_completion ]] && . /usr/share/nvm/bash_completion
   return 0
