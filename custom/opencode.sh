@@ -205,6 +205,65 @@ function opencode-webunlock {
   return 1
 }
 
+# Purga sockets muertos de screen para una sesión.
+# `screen -wipe` no siempre borra el fichero (queda "Remote or dead" y el
+# chequeo de "ya existe" da falso positivo). Aquí: wipe + si screen -ls
+# sigue reportando la sesión como muerta/desconocida, borra el socket a mano.
+# Uso: _osh_opencode_purge_dead [sesión] → 0 si dejó limpio, 1 si sigue viva.
+function _osh_opencode_purge_dead {
+  local session=${1:-${OSH_OPENCODE_SESSION:-Opencode-web}}
+  local out
+  screen -wipe >/dev/null 2>&1 || true
+  out=$(screen -ls 2>&1 || true)
+  # Viva → no tocar nada (evita borrar la sesión buena si convive con una muerta).
+  if printf '%s\n' "$out" | command grep -q "[.]$session[[:space:]].*(Attached\|Detached)"; then
+    # Aun habiendo viva, puede haber sockets muertos del mismo nombre con otro
+    # PID (p.ej. corte abrupto). Borra SOLO los PIDs muertos, nunca la viva.
+    local d f base pid alive_pids
+    alive_pids=$(printf '%s\n' "$out" | command awk -v s="$session" '$0 ~ "[.]"s"[[:space:]]" && $0 ~ /\(Attached|\(Detached/ { split($1,a,"."); print a[1] }')
+    for d in "${SCREENDIR:-}" "$HOME/.screen" "/run/user/$(id -u)/screen" "/run/screen/S-$(id -un)" "/var/run/screen/S-$(id -un)"; do
+      [[ -n $d && -d $d ]] || continue
+      for f in "$d"/*."$session"; do
+        [[ -e $f ]] || continue
+        base=${f##*/}
+        pid=${base%%.*}
+        [[ $pid =~ ^[0-9]+$ ]] || continue
+        if printf '%s\n' "$alive_pids" | command grep -qx "$pid"; then
+          continue
+        fi
+        if ! kill -0 "$pid" 2>/dev/null; then
+          command rm -f -- "$f" 2>/dev/null && echo "opencode-web: socket muerto purgado ($f)." >&2
+        fi
+      done
+    done
+    screen -wipe >/dev/null 2>&1 || true
+    return 1 # sigue viva
+  fi
+  # Sin viva: si queda rastro (línea muerta o fichero huérfano), borra solo
+  # PIDs muertos / huérfanos sin proceso.
+  if printf '%s\n' "$out" | command grep -q "[.]$session[[:space:]]"; then
+    local d f base pid
+    for d in "${SCREENDIR:-}" "$HOME/.screen" "/run/user/$(id -u)/screen" "/run/screen/S-$(id -un)" "/var/run/screen/S-$(id -un)"; do
+      [[ -n $d && -d $d ]] || continue
+      for f in "$d"/*."$session"; do
+        [[ -e $f ]] || continue
+        base=${f##*/}
+        pid=${base%%.*}
+        [[ $pid =~ ^[0-9]+$ ]] || continue
+        if ! kill -0 "$pid" 2>/dev/null; then
+          command rm -f -- "$f" 2>/dev/null && echo "opencode-web: socket muerto purgado ($f)." >&2
+        fi
+      done
+    done
+    screen -wipe >/dev/null 2>&1 || true
+  fi
+  # 0 = limpio (no hay sesión viva), 1 = sigue viva
+  if screen -ls 2>/dev/null | command grep -q "[.]$session[[:space:]].*(Attached\|Detached)"; then
+    return 1
+  fi
+  return 0
+}
+
 function opencode-web {
   local port=${1:-$OSH_OPENCODE_PORT}
   local host=${2:-$OSH_OPENCODE_HOST}
@@ -241,15 +300,23 @@ function opencode-web {
   fi
 
   # Purga sockets muertos: un screen colgado (p.ej. tras corte abrupto)
-  # aparece en `screen -ls` pero ya no sirve; sin esto el chequeo de
-  # "ya existe" da falso positivo y webstop falla.
-  screen -wipe >/dev/null 2>&1 || true
+  # aparece en `screen -ls` como "(Remote or dead)" y `screen -wipe` no
+  # siempre borra el fichero; sin purga explícita el chequeo de "ya existe"
+  # da falso positivo y webstop falla con "No screen session found".
+  _osh_opencode_purge_dead "$session" || true
 
-  if screen -ls 2>/dev/null | command grep -q "[.]$session[[:space:]]"; then
+  if screen -ls 2>/dev/null | command grep -q "[.]$session[[:space:]].*(Attached\|Detached)"; then
     echo "opencode-web: la sesión '$session' ya existe, no la duplico."
     echo "opencode-web: modo actual: $([[ ${OSH_OPENCODE_HEADED:-0} == 1 ]] && echo HEADED || echo HEADLESS) (WAYLAND_DISPLAY=${WAYLAND_DISPLAY-<vacío>} DISPLAY=${DISPLAY-<vacío>})"
     echo "opencode-web: si ese screen se creó sin display y Playwright sale headless,"
     echo "opencode-web: haz 'opencode-webstop' y relanza 'opencode-web' para heredar el escritorio."
+  elif screen -ls 2>/dev/null | command grep -q "[.]$session[[:space:]]"; then
+    # Colgada en estado raro (p.ej. Remote/Unknown tras purga fallida): no
+    # relanzar encima; avisa y muestra cómo limpiar a mano.
+    echo "opencode-web: la sesión '$session' está colgada (no Attached/Detached)." >&2
+    screen -ls 2>&1 >&2
+    echo "opencode-web: prueba 'opencode-webstop -f' o borra ~/.screen/*.$session y reintenta." >&2
+    return 1
   else
     echo "opencode-web: modo $([[ ${OSH_OPENCODE_HEADED:-0} == 1 ]] && echo HEADED || echo HEADLESS) (WAYLAND_DISPLAY=${WAYLAND_DISPLAY-<vacío>} DISPLAY=${DISPLAY-<vacío>})"
     # Log fresco en cada arranque: borra el anterior para no mezclar sesiones.
@@ -262,7 +329,20 @@ function opencode-web {
   if [[ -s $log ]]; then
     command cat -- "$log"
   else
-    echo "opencode-web: aún no hay log en $log." >&2
+    # opencode serve suele arrancar silencioso: log vacío ≠ error.
+    # Verifica puerto en vez de alarmar.
+    local tries=0
+    while ((tries < 5)) && [[ ! -s $log ]]; do
+      sleep 1
+      ((tries++)) || true
+    done
+    if [[ -s $log ]]; then
+      command cat -- "$log"
+    elif command ss -tln 2>/dev/null | command grep -q "[:.]$port[[:space:]]"; then
+      echo "opencode-web: serve escuchando en $host:$port (log aún vacío, normal al arrancar)." >&2
+    else
+      echo "opencode-web: aún no hay log en $log (serve quizá aún arranca; revisa con 'screen -ls' y 'opencode-weblog')." >&2
+    fi
   fi
   screen -ls
 }
@@ -278,11 +358,33 @@ function opencode-weblog {
 
 function opencode-webstop {
   local session=${OSH_OPENCODE_SESSION:-Opencode-web}
-  screen -S "$session" -X quit || {
-    echo "opencode-webstop: no existe la sesión '$session'." >&2
-    return 1
-  }
-  echo "opencode-webstop: sesión '$session' cerrada."
+  local force=0
+  [[ ${1:-} == -f || ${1:-} == --force ]] && force=1
+  if screen -S "$session" -X quit 2>/dev/null; then
+    echo "opencode-webstop: sesión '$session' cerrada."
+    _osh_opencode_purge_dead "$session" >/dev/null 2>&1 || true
+    return 0
+  fi
+  # quit falló: puede ser socket muerto → purga y reintenta.
+  if _osh_opencode_purge_dead "$session"; then
+    echo "opencode-webstop: sesión '$session' estaba muerta, socket purgado."
+    return 0
+  fi
+  if ((force == 1)); then
+    local d f
+    for d in "${SCREENDIR:-}" "$HOME/.screen" "/run/user/$(id -u)/screen" "/run/screen/S-$(id -un)" "/var/run/screen/S-$(id -un)"; do
+      [[ -n $d && -d $d ]] || continue
+      for f in "$d"/*."$session"; do
+        [[ -e $f ]] || continue
+        command rm -f -- "$f" 2>/dev/null
+      done
+    done
+    screen -wipe >/dev/null 2>&1 || true
+    echo "opencode-webstop: sesión '$session' forzada (-f)."
+    return 0
+  fi
+  echo "opencode-webstop: no existe la sesión '$session'." >&2
+  return 1
 }
 
 # Atajo rápido para abrir opencode
