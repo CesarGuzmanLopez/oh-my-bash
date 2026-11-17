@@ -24,6 +24,7 @@ export OPENCODE_EXPERIMENTAL_LSP_TOOL=${OPENCODE_EXPERIMENTAL_LSP_TOOL:-true}
 # Las rutas fijas cubren los que viven en node_modules (no necesitan PATH).
 _OSH_LSP_SERVERS=(
   "java:$HOME/.local/bin/jdtls"
+  "kotlin:$HOME/.local/bin/kotlin-lsp"
   "typescript:$HOME/.config/opencode/node_modules/.bin/typescript-language-server"
   "python:pylsp"
   "cpp:clangd"
