@@ -279,6 +279,12 @@ function opencode-web {
     return 127
   fi
 
+  # Gate LSP: sin stack completo no se arranca (trabajar a ciegas es peor).
+  # Bypass con OSH_LSP_CHECK=0. Definido en custom/lsp.sh.
+  if command -v _osh_lsp_gate >/dev/null 2>&1; then
+    _osh_lsp_gate || return 1
+  fi
+
   # Hereda el escritorio (no-op en local, rescate por SSH).
   # screen hereda el entorno al crear la sesión, así el serve ve el display.
   # Sin sesión gráfica no falla: marca HEADED=0 y sigue en headless.
@@ -396,6 +402,11 @@ alias ocweb='opencode-web'
 # WAYLAND_DISPLAY/DISPLAY (el TUI normal usa el background service, que suele
 # estar headless si se arrancó por SSH).
 function opencode-tui {
+  # Gate LSP: sin stack completo no se arranca (trabajar a ciegas es peor).
+  # Bypass con OSH_LSP_CHECK=0. Definido en custom/lsp.sh.
+  if command -v _osh_lsp_gate >/dev/null 2>&1; then
+    _osh_lsp_gate || return 1
+  fi
   # Rescate de display (igual que opencode-web: no-op en local, rescate por SSH).
   _osh_opencode_desktop_env || true
   if [[ ${OSH_OPENCODE_HEADED:-0} == 1 && ${OSH_OPENCODE_AUTO_UNLOCK:-1} != 0 ]]; then
