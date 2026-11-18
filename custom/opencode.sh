@@ -428,7 +428,7 @@ function opencode-tui {
   # Forward de args idéntico al opencode real; --standalone solo donde crea
   # server (TUI interactivo, run, mini). Gestión (serve/service/mcp/auth/…)
   # pasa tal cual, sin inventar flags. Dir por defecto: facebook-agent.
-  local default_dir=/home/cesar/facebook-agent
+  local default_dir=$HOME/facebook-agent
   if [[ $# -gt 0 ]]; then
     case $1 in
     serve | service | mcp | auth | plugin | models | stats | session | pair | reload | upgrade | update | uninstall | api | acp | debug)
