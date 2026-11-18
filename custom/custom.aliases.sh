@@ -5,7 +5,7 @@
 alias tardis='bash "$OSH"/tardis.sh'
 alias refreshcolor='if command -v kitten >/dev/null 2>&1; then kitten @ load-config; fi; if [[ $(type -t _omb_theme_reload_colors) == function ]]; then _omb_theme_reload_colors; fi'
 # proyectos: sin args -> ~/Documents/Proyectos; con nombre -> esa subcarpeta (Tab completa);
-#   open <nombre> -> workspace kitty (izq: opencode arriba + terminal abajo, der: nvim en la raiz)
+#   open <nombre> -> 2 ventanas OS kitty separadas (una: opencode, otra: nvim en la raiz)
 #   o solo nvim si no hay kitty usable (ssh, sin display).
 unalias proyectos 2>/dev/null || true
 function proyectos {
@@ -56,7 +56,7 @@ function _proyectos_open {
   fi
   _proyectos_open_nvim "$target"
 }
-# Pestana nueva en el kitty actual: izq opencode+terminal, der nvim.
+# Dos ventanas OS separadas en el kitty actual: una con opencode, otra con nvim. Sin splits.
 function _proyectos_open_tab {
   local target=$1 name=$2
   # Ruta absoluta: la ventana nueva hereda el PATH de kitty (sesion grafica),
@@ -66,15 +66,10 @@ function _proyectos_open_tab {
     echo "proyectos: opencode no esta instalado" >&2
     return 1
   }
-  local w_left w_nvim
-  w_left=$(kitty @ launch --type=tab --tab-title="$name" --cwd="$target" --title=opencode "$opencode_bin") || return 1
-  kitty @ goto-layout splits || return 1
-  w_nvim=$(kitty @ launch --location=vsplit --bias 55 --cwd="$target" --title=nvim nvim .) || return 1
-  kitty @ focus-window --match "id:$w_left" >/dev/null || return 1
-  kitty @ launch --location=hsplit --bias 30 --cwd="$target" --title=terminal >/dev/null || return 1
-  kitty @ focus-window --match "id:$w_nvim" >/dev/null || true
+  kitty @ launch --type=os-window --tab-title="$name-opencode" --cwd="$target" --title=opencode "$opencode_bin" >/dev/null || return 1
+  kitty @ launch --type=os-window --tab-title="$name-nvim" --cwd="$target" --title=nvim nvim . >/dev/null || return 1
 }
-# Ventana nueva de kitty (display disponible pero fuera de kitty): mismo layout via session.
+# Dos ventanas OS separadas (display disponible pero fuera de kitty): una con opencode, otra con nvim.
 function _proyectos_open_window {
   local target=$1 name=$2
   # Ruta absoluta por lo mismo que en _proyectos_open_tab (PATH de kitty != PATH interactivo).
@@ -88,11 +83,10 @@ function _proyectos_open_window {
   local sess="$sess_dir/$name.session"
   local qtarget=${target//\"/\\\"}
   {
-    printf 'new_tab %s\n' "$name"
-    printf 'layout tall:bias=55;full_size=1;mirrored=true\n'
-    printf 'launch --title nvim --cwd "%s" nvim .\n' "$qtarget"
+    printf 'new_os_window\n'
     printf 'launch --title opencode --cwd "%s" "%s"\n' "$qtarget" "$opencode_bin"
-    printf 'launch --title terminal --cwd "%s"\n' "$qtarget"
+    printf 'new_os_window\n'
+    printf 'launch --title nvim --cwd "%s" nvim .\n' "$qtarget"
   } >|"$sess" || return 1
   kitty --detach --session "$sess"
 }
